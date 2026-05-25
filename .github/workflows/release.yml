@@ -58,6 +58,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          beforeBuildCommand: 'npx vite build'
 
   checksum-release:
     needs: publish-tauri
@@ -113,13 +114,12 @@ jobs:
               with open('README.md', 'w') as f:
                   f.write(new_readme)
           "
-
-          # Push changes to README.md
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
           git commit -m "chore: update release checksums in README.md [skip ci]" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          git push origin HEAD:release || echo "No changes to push"
+          git push origin HEAD:main || echo "No changes to push"
 
           echo "" >> checksums-table.md
           echo "### Installation Assets" >> checksums-table.md
