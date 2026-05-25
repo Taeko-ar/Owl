@@ -1,14 +1,12 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use std::fs;
-use std::io::{self, Cursor};
+use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::Path;
-use reqwest::blocking::Client;
-use reqwest::StatusCode;
 use tempfile::TempDir;
 use zip::ZipArchive;
 use sevenz_rust;
