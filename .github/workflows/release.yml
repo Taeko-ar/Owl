@@ -47,6 +47,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Build frontend assets
+        run: npx vite build
+
       - name: Build and upload Tauri bundle
         uses: tauri-apps/tauri-action@v0
         env:
@@ -58,7 +61,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          beforeBuildCommand: 'npx vite build'
 
   checksum-release:
     needs: publish-tauri
