@@ -1,0 +1,245 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  background: #111827;
+  overflow: hidden;
+}
+
+#settingsModal {
+  backdrop-filter: blur(4px);
+}
+
+.titlebar {
+  -webkit-app-region: drag;
+}
+
+.titlebar-button {
+  -webkit-app-region: no-drag;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.titlebar-button:hover {
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.nav-tab {
+  transition: all 0.2s ease;
+}
+
+.nav-tab.active {
+  border-color: rgb(148, 163, 184) !important;
+  color: rgb(226, 232, 240) !important;
+}
+
+input[type='range'] {
+  accent-color: rgb(148, 163, 184);
+}
+
+input[type='checkbox'] {
+  accent-color: rgb(148, 163, 184);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 24px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #334155;
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  background: #f8fafc;
+  border-radius: 9999px;
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #475569;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toast {
+  transition: opacity 0.3s ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(15, 23, 42);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(51, 65, 85);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(71, 85, 105);
+}
+
+/* Light mode overrides */
+body.light-mode {
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
+}
+
+body.light-mode .bg-slate-900,
+body.light-mode header,
+body.light-mode nav,
+body.light-mode footer {
+  background-color: #e5e7eb !important;
+  border-color: #d1d5db !important;
+}
+
+body.light-mode .text-slate-100 {
+  color: #111827 !important;
+}
+
+body.light-mode .text-slate-400 {
+  color: #4b5563 !important;
+}
+
+body.light-mode .text-slate-300 {
+  color: #374151 !important;
+}
+
+body.light-mode .text-slate-500 {
+  color: #6b7280 !important;
+}
+
+body.light-mode .border-slate-800,
+body.light-mode .border-slate-700 {
+  border-color: #d1d5db !important;
+}
+
+body.light-mode .bg-slate-950 {
+  background-color: #f9fafb !important;
+}
+
+body.light-mode .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+body.light-mode .bg-slate-800 {
+  background-color: #f3f4f6 !important;
+  color: #1f2937 !important;
+}
+
+body.light-mode .bg-slate-800:hover {
+  background-color: #e5e7eb !important;
+}
+
+body.light-mode .addon-item p,
+body.light-mode .text-slate-200 {
+  color: #111827 !important;
+}
+
+body.light-mode input[type='text'],
+body.light-mode select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light-mode .toggle-slider {
+  background: #cbd5e1;
+}
+
+body.light-mode .toggle-slider::before {
+  background: #ffffff;
+}
+
+body.light-mode .toggle-switch input:checked + .toggle-slider {
+  background: #64748b;
+}
+
+body.light-mode .nav-tab.active {
+  border-color: #475569 !important;
+  color: #0f172a !important;
+}
+
+body.light-mode .titlebar-button:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-mode ::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+body.light-mode ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+body.light-mode ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tweaks sub-navigation overrides for light mode */
+body.light-mode .tweak-sidebar-btn.active {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light-mode .tweak-sidebar-btn:not(.active):hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #111827 !important;
+}
+

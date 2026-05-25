@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OWL</title>
+    <script type="module" src="src/main.ts"></script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="flex h-screen flex-col">
+      <header
+        class="titlebar border-b border-slate-800 bg-slate-900 px-4 flex h-11 items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <img src="src/icon.ico" class="w-7 h-7 pointer-events-none" alt="OWL Logo" />
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            id="themeToggleBtn"
+            class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800 flex items-center justify-center"
+            title="Toggle Light/Dark Mode"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.8"
+              stroke="currentColor"
+              class="w-4 h-4 pointer-events-none text-slate-300"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.223l-1.591 1.591M5.25 12H3m4.223-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
+              />
+            </svg>
+          </button>
+          <button
+            id="settingsBtn"
+            class="titlebar-button rounded-full p-1.5 text-slate-100 hover:bg-slate-800 flex items-center justify-center"
+            title="Settings"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.8"
+              stroke="currentColor"
+              class="w-4 h-4 text-slate-300 pointer-events-none"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.99l1.005.831a1.125 1.125 0 01.26 1.43l-1.297 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.83c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.831a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.869l.214-1.28z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
+          <div class="relative inline-block text-left">
+            <button
+              id="langBtn"
+              class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800 flex items-center justify-center cursor-pointer outline-none"
+              title="Select Language"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.8"
+                stroke="currentColor"
+                class="w-4 h-4 text-slate-300 pointer-events-none"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802"
+                />
+              </svg>
+            </button>
+            <div
+              id="langDropdown"
+              class="hidden absolute right-0 mt-1 z-50 bg-slate-900 border border-slate-700 rounded shadow-xl py-1 min-w-[160px]"
+            >
+              <button
+                class="lang-option w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-100 text-xs transition-colors duration-150 block cursor-pointer outline-none"
+                data-lang="en"
+              >
+                English
+              </button>
+              <button
+                class="lang-option w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-100 text-xs transition-colors duration-150 block cursor-pointer outline-none"
+                data-lang="es"
+              >
+                Español (Latam)
+              </button>
+              <button
+                class="lang-option w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-100 text-xs transition-colors duration-150 block cursor-pointer outline-none"
+                data-lang="pt"
+              >
+                Português (Brasil)
+              </button>
+            </div>
+          </div>
+          <button
+            id="minimizeBtn"
+            class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800"
+            title="Minimize"
+          >
+            ─
+          </button>
+          <button
+            id="windowCloseBtn"
+            class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+      </header>
+
+      <nav
+        class="border-b border-slate-800 bg-slate-900 flex justify-between items-center pr-6 flex-shrink-0"
+      >
+        <div class="flex gap-6 px-6">
+          <button
+            class="nav-tab active border-b-2 border-slate-400 py-3 font-medium text-slate-100"
+            data-tab="addons"
+            data-i18n="tabs.addons"
+          >
+            Addons
+          </button>
+          <button
+            class="nav-tab border-b-2 border-transparent py-3 font-medium text-slate-400 hover:text-slate-200"
+            data-tab="tweaks"
+            data-i18n="tabs.tweaks"
+          >
+            Tweaks
+          </button>
+          <button
+            class="nav-tab border-b-2 border-transparent py-3 font-medium text-slate-400 hover:text-slate-200"
+            data-tab="mods"
+            data-i18n="tabs.mods"
+          >
+            Mods
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            id="importAddonBtn"
+            class="text-xs bg-slate-800 border border-slate-700 hover:border-slate-500 px-3.5 py-1.5 rounded text-slate-100 hover:bg-slate-700 transition-all duration-150 cursor-pointer outline-none font-semibold flex items-center gap-1.5"
+            data-i18n="buttons.importAddon"
+          >
+            Import Addon
+          </button>
+          <button
+            id="openModsFolder"
+            class="text-xs bg-slate-800 border border-slate-700 hover:border-slate-500 px-3.5 py-1.5 rounded text-slate-100 hover:bg-slate-700 transition-all duration-150 cursor-pointer outline-none font-semibold flex items-center gap-1.5 hidden"
+            data-i18n="buttons.openFolder"
+          >
+            Open Folder
+          </button>
+        </div>
+      </nav>
+
+      <main class="flex-1 flex flex-col overflow-hidden bg-slate-950 min-h-0">
+        <section id="tweaks-tab" class="tab-content hidden p-6 flex flex-col flex-1 min-h-0">
+          <div
+            class="rounded-lg border border-slate-800 bg-slate-900 p-5 flex flex-col h-full min-h-0"
+          >
+            <div
+              id="config-tree"
+              class="mt-4 text-sm text-slate-300 overflow-y-auto flex-1 min-h-0 pr-3"
+            ></div>
+          </div>
+        </section>
+
+        <section id="addons-tab" class="tab-content p-6 flex flex-col flex-1 min-h-0">
+          <div
+            class="rounded-lg border border-slate-800 bg-slate-900 p-6 flex flex-col h-full min-h-0"
+          >
+            <div id="addons-list" class="space-y-3 overflow-y-auto flex-1 min-h-0 pr-3"></div>
+            <p id="addons-empty" class="text-center text-slate-400 py-8" data-i18n="addons.empty">
+              No addons installed
+            </p>
+          </div>
+        </section>
+
+        <section id="mods-tab" class="tab-content hidden p-6 flex flex-col flex-1 min-h-0">
+          <div
+            class="rounded-lg border border-slate-800 bg-slate-900 p-6 flex flex-col h-full min-h-0"
+          >
+            <div id="patches-list" class="space-y-2 overflow-y-auto flex-1 min-h-0 pr-3"></div>
+            <p
+              id="patches-empty"
+              class="text-center text-slate-400 py-8"
+              style="display: flex; justify-content: center; align-items: center"
+              data-i18n="patches.empty"
+            >
+              No patches installed
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-slate-800 bg-slate-900/50 px-6 py-3">
+        <div class="flex items-end justify-between gap-4">
+          <div class="flex-1">
+            <div id="status" class="text-sm text-slate-400 mb-2" data-i18n="status.ready">
+              Ready
+            </div>
+            <div class="h-1 overflow-hidden rounded-full bg-slate-800">
+              <div
+                id="activityProgress"
+                class="h-full w-0 bg-slate-500 transition-all duration-300"
+              ></div>
+            </div>
+          </div>
+          <button
+            id="playBtn"
+            class="rounded bg-slate-700 px-6 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600"
+            data-i18n="buttons.play"
+          >
+            PLAY
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <div
+      id="settingsModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    >
+      <div
+        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-96 max-h-96 overflow-y-auto"
+      >
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-slate-100" data-i18n="settings.title">Settings</h2>
+          <button id="closeSettings" class="text-slate-400 hover:text-slate-200">✕</button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2" data-i18n="settings.gameFolder"
+              >Game Folder</label
+            >
+            <div class="flex gap-2">
+              <input
+                id="gamePath"
+                type="text"
+                value="C:\"
+                class="flex-1 rounded bg-slate-800 px-3 py-2 text-sm border border-slate-700"
+              />
+              <button
+                id="browseGamePathBtn"
+                class="text-sm bg-slate-800 px-3 py-2 rounded text-slate-100 hover:bg-slate-700"
+                data-i18n="settings.browse"
+              >
+                Browse
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2" data-i18n="settings.windowSize"
+              >Window Size</label
+            >
+            <select
+              id="windowSize"
+              class="w-full rounded bg-slate-800 px-3 py-2 text-sm border border-slate-700 text-slate-100 outline-none focus:border-slate-500"
+            >
+              <option value="960x540">960 × 540</option>
+              <option value="1280x720" selected>1280 × 720</option>
+              <option value="1600x900">1600 × 900</option>
+            </select>
+          </div>
+
+          <label class="flex items-center gap-2 text-sm">
+            <input id="stayOpen" type="checkbox" class="accent-slate-400" />
+            <span data-i18n="settings.keepOpen">Keep launcher open after launch</span>
+          </label>
+
+          <div class="mt-6 flex justify-end gap-2">
+            <button
+              id="cancelSettings"
+              class="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-200 hover:bg-slate-700"
+              data-i18n="settings.cancel"
+            >
+              Cancel
+            </button>
+            <button
+              id="applySettings"
+              class="rounded bg-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-500"
+              data-i18n="settings.apply"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

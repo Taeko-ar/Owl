@@ -1,0 +1,132 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: ''
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'x86_64-apple-darwin aarch64-apple-darwin' || '' }}
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and upload Tauri bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Release ${{ github.ref_name }}'
+          releaseBody: 'OWL release.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  checksum-release:
+    needs: publish-tauri
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate Checksums and Publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir release-assets
+          gh release download "$TAG" --dir release-assets --repo "$GITHUB_REPOSITORY"
+
+          echo "| File Name | MD5 Checksum | SHA-256 Checksum |" > checksums-table-only.md
+          echo "| --- | --- | --- |" >> checksums-table-only.md
+
+          cd release-assets
+          for file in *; do
+            if [ -f "$file" ]; then
+              md5_hash=$(md5sum "$file" | awk '{print $1}')
+              sha256_hash=$(sha256sum "$file" | awk '{print $1}')
+              echo "| \`$file\` | \`$md5_hash\` | \`$sha256_hash\` |" >> ../checksums-table-only.md
+            fi
+          done
+          cd ..
+
+          echo "### Release Checksums" > checksums-table.md
+          echo "Verified file integrity checksums for this release:" >> checksums-table.md
+          echo "" >> checksums-table.md
+          cat checksums-table-only.md >> checksums-table.md
+
+          # Update README.md
+          python3 -c "
+          with open('README.md', 'r') as f:
+              readme = f.read()
+          with open('checksums-table-only.md', 'r') as f:
+              table = f.read()
+          start_marker = '<!-- CHECKSUM_TABLE_START -->'
+          end_marker = '<!-- CHECKSUM_TABLE_END -->'
+          start_idx = readme.find(start_marker)
+          end_idx = readme.find(end_marker)
+          if start_idx != -1 and end_idx != -1:
+              new_readme = (
+                  readme[:start_idx + len(start_marker)] +
+                  '\n\n' + table.strip() + '\n\n' +
+                  readme[end_idx:]
+              )
+              with open('README.md', 'w') as f:
+                  f.write(new_readme)
+          "
+
+          # Push changes to README.md
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: update release checksums in README.md [skip ci]" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+          echo "" >> checksums-table.md
+          echo "### Installation Assets" >> checksums-table.md
+
+          # Fetch the current release body to preserve it
+          gh release view "$TAG" --json body --jq .body > existing-body.txt
+          cat existing-body.txt >> checksums-table.md
+
+          # Update the draft release notes and publish it (remove draft flag)
+          gh release edit "$TAG" --notes-file checksums-table.md --draft=false --repo "$GITHUB_REPOSITORY"
