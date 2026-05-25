@@ -4,7 +4,6 @@ node_modules/
 # Build artifacts
 /dist/
 /src-tauri/target/
-/src-tauri/icons/icon.ico
 
 # Editor and OS files
 .vscode/
