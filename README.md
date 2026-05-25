@@ -8,9 +8,7 @@
 
 ## Features
 
-- Launch World of Warcraft from a local installation.
-- Enable, disable and update installed addons.
-- Enable and disable patch files.
+- Enable, disable and update installed addons/patchs.
 - Edit `config.wtf` game settings through the launcher.
 
 ## Install
