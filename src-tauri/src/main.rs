@@ -249,6 +249,29 @@ fn get_addons(base_path: String) -> std::result::Result<Vec<String>, String> {
     Ok(addons)
 }
 
+#[derive(Serialize, Deserialize)]
+struct OwlAddonMeta {
+    remote_url: String,
+    branch: String,
+    commit_sha: String,
+}
+
+fn fetch_latest_commit_sha(owner: &str, repo: &str, branch: &str) -> std::result::Result<String, String> {
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())?;
+    let url = format!("https://api.github.com/repos/{}/{}/commits/{}", owner, repo, branch);
+    let resp = client.get(&url).send().map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("API error: {}", resp.status()));
+    }
+    let text = resp.text().map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let sha = json["sha"].as_str().ok_or("No SHA found in API response")?;
+    Ok(sha.to_string())
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AddonGitStatus {
@@ -299,6 +322,27 @@ fn run_git_command(path: &Path, args: &[&str]) -> std::result::Result<String, St
 
 fn get_addon_git_status(addon_path: &Path) -> Option<AddonGitStatus> {
     if !addon_path.join(".git").exists() {
+        let meta_path = addon_path.join(".owl-meta.json");
+        if meta_path.exists() {
+            if let Ok(content) = fs::read_to_string(&meta_path) {
+                if let Ok(owl_meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
+                    if let Ok((owner, repo, _)) = parse_github_repo_url(&owl_meta.remote_url) {
+                        if let Ok(latest_sha) = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch) {
+                            let has_update = latest_sha != owl_meta.commit_sha;
+                            return Some(AddonGitStatus {
+                                remote_url: Some(owl_meta.remote_url),
+                                branch: Some(owl_meta.branch.clone()),
+                                ahead: Some(0),
+                                behind: Some(if has_update { 1 } else { 0 }),
+                                update_available: Some(has_update),
+                                last_commit: None,
+                                branches: vec![owl_meta.branch],
+                            });
+                        }
+                    }
+                }
+            }
+        }
         return None;
     }
 
@@ -473,6 +517,52 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
         return Err("Addon folder not found".into());
     }
     if !addon_path.join(".git").exists() {
+        let meta_path = addon_path.join(".owl-meta.json");
+        if meta_path.exists() {
+            if let Ok(content) = fs::read_to_string(&meta_path) {
+                if let Ok(owl_meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
+                    let (owner, repo, _) = parse_github_repo_url(&owl_meta.remote_url)?;
+                    let client = reqwest::blocking::Client::builder()
+                        .user_agent("OWL-Launcher")
+                        .build()
+                        .map_err(|e| e.to_string())?;
+
+                    let zip_url = format!(
+                        "https://github.com/{}/{}/archive/refs/heads/{}.zip",
+                        owner, repo, owl_meta.branch
+                    );
+
+                    let mut resp = client.get(&zip_url).send().map_err(|e| e.to_string())?;
+                    if !resp.status().is_success() {
+                        return Err(format!("Failed to download zip: {}", resp.status()));
+                    }
+
+                    let latest_sha = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch)?;
+
+                    let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
+                    let zip_path = temp_dir.path().join("addon.zip");
+                    let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+                    resp.copy_to(&mut file).map_err(|e| e.to_string())?;
+
+                    let extract_dir = temp_dir.path().join("extract");
+                    let extracted_root = extract_archive(&zip_path, &extract_dir)?;
+
+                    fs::remove_dir_all(&addon_path).map_err(|e| e.to_string())?;
+                    fs::rename(&extracted_root, &addon_path).map_err(|e| e.to_string())?;
+
+                    let new_meta = OwlAddonMeta {
+                        remote_url: owl_meta.remote_url,
+                        branch: owl_meta.branch,
+                        commit_sha: latest_sha,
+                    };
+                    if let Ok(meta_json) = serde_json::to_string_pretty(&new_meta) {
+                        let _ = fs::write(&meta_path, meta_json);
+                    }
+
+                    return Ok(format!("Updated addon '{}' (Zip Fallback)", addon_name));
+                }
+            }
+        }
         return Err("Addon is not a git repository".into());
     }
 
@@ -688,29 +778,93 @@ async fn import_addon(base_path: String, repo_url: String) -> std::result::Resul
         fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
     }
 
-    let clone_url = format!("https://github.com/{}/{}.git", owner, repo);
-    let mut args = vec!["clone", &clone_url];
-    if let Some(ref b) = branch {
-        args.push("-b");
-        args.push(b);
-    }
-    args.push(&repo);
-
-    let mut cmd = Command::new("git");
-    cmd.args(&args).current_dir(&addons_dir);
-
+    let mut check_cmd = Command::new("git");
+    check_cmd.arg("--version");
     #[cfg(target_os = "windows")]
     {
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
+        check_cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    let git_installed = check_cmd.output().map(|o| o.status.success()).unwrap_or(false);
 
-    let output = cmd.output().map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    if git_installed {
+        let clone_url = format!("https://github.com/{}/{}.git", owner, repo);
+        let mut args = vec!["clone", &clone_url];
+        if let Some(ref b) = branch {
+            args.push("-b");
+            args.push(b);
+        }
+        args.push(&repo);
+
+        let mut cmd = Command::new("git");
+        cmd.args(&args).current_dir(&addons_dir);
+
+        #[cfg(target_os = "windows")]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        }
+
+        Ok(format!("Imported addon {} from GitHub", repo))
+    } else {
+        let client = reqwest::blocking::Client::builder()
+            .user_agent("OWL-Launcher")
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let branch_name = branch.unwrap_or_else(|| "main".to_string());
+        let zip_url = format!(
+            "https://github.com/{}/{}/archive/refs/heads/{}.zip",
+            owner, repo, branch_name
+        );
+
+        let mut resp = client.get(&zip_url).send().map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            if branch_name == "main" {
+                let fallback_url = format!(
+                    "https://github.com/{}/{}/archive/refs/heads/master.zip",
+                    owner, repo
+                );
+                let resp2 = client.get(&fallback_url).send().map_err(|e| e.to_string())?;
+                if resp2.status().is_success() {
+                    resp = resp2;
+                } else {
+                    return Err(format!("Failed to download zip: {}", resp.status()));
+                }
+            } else {
+                return Err(format!("Failed to download zip: {}", resp.status()));
+            }
+        }
+
+        let latest_sha = fetch_latest_commit_sha(&owner, &repo, &branch_name).unwrap_or_default();
+
+        let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
+        let zip_path = temp_dir.path().join("addon.zip");
+        let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+        resp.copy_to(&mut file).map_err(|e| e.to_string())?;
+
+        let extract_dir = temp_dir.path().join("extract");
+        let extracted_root = extract_archive(&zip_path, &extract_dir)?;
+
+        fs::rename(&extracted_root, &target_dir).map_err(|e| e.to_string())?;
+
+        let meta_file_path = target_dir.join(".owl-meta.json");
+        let owl_meta = OwlAddonMeta {
+            remote_url: repo_url.clone(),
+            branch: branch_name,
+            commit_sha: latest_sha,
+        };
+        if let Ok(meta_json) = serde_json::to_string_pretty(&owl_meta) {
+            let _ = fs::write(&meta_file_path, meta_json);
+        }
+
+        Ok(format!("Imported addon {} from GitHub (Zip Fallback)", repo))
     }
-
-    Ok(format!("Imported addon {} from GitHub", repo))
 }
 
 fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Result<PathBuf, String> {
