@@ -55,8 +55,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Release ${{ github.ref_name }}'
+          tagName: v1.0.0-build.${{ github.run_number }}
+          releaseName: 'Release v1.0.0-build.${{ github.run_number }}'
           releaseBody: 'OWL release.'
           releaseDraft: true
           prerelease: false
@@ -74,7 +74,7 @@ jobs:
       - name: Generate Checksums and Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: v1.0.0-build.${{ github.run_number }}
         run: |
           mkdir release-assets
           gh release download "$TAG" --dir release-assets --repo "$GITHUB_REPOSITORY"
