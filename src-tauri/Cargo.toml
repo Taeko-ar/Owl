@@ -13,6 +13,7 @@ sevenz-rust = "0.6.1"
 tempfile = "3.6"
 rfd = "0.14"
 dirs = "5.0"
+tauri-plugin-updater = "2.10.1"
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }

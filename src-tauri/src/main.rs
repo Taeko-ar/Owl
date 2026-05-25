@@ -13,6 +13,8 @@ use sevenz_rust;
 use serde::{Deserialize, Serialize};
 use dirs::config_dir;
 use rfd::FileDialog;
+use tauri_plugin_updater::UpdaterExt;
+
 
 #[tauri::command]
 fn launch_game(base_path: String, _stay_open: bool) -> std::result::Result<String, String> {
@@ -1090,10 +1092,19 @@ fn delete_addon(base_path: String, addon_name: String) -> std::result::Result<St
     Ok(format!("Deleted {}", addon_name))
 }
 
+async fn check_for_updates(app: tauri::AppHandle) -> std::result::Result<(), String> {
+    if let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? {
+        update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    Ok(())
+}
+
 fn main() {
     let allow_devtools = std::env::var("ALLOW_DEVTOOLS").unwrap_or_default() == "1";
 
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             launch_game,
             get_patches,
@@ -1119,14 +1130,17 @@ fn main() {
             set_window_size,
             check_addon_git_status,
             change_addon_branch
-        ]);
-
-    if allow_devtools {
-        builder = builder.setup(|_app| {
-            println!("ALLOW_DEVTOOLS=1 set, but automatic devtools opening is not supported in this build; open devtools from the menu or console if needed.");
+        ])
+        .setup(move |app| {
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = check_for_updates(handle).await;
+            });
+            if allow_devtools {
+                println!("ALLOW_DEVTOOLS=1 set, but automatic devtools opening is not supported in this build; open devtools from the menu or console if needed.");
+            }
             Ok(())
         });
-    }
 
     builder
         .run(tauri::generate_context!())
