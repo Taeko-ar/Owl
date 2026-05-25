@@ -1,6 +1,10 @@
 # OWL
 
-**OpenWow Launcher** for World of Warcraft Classic 1.12.1 and WoTLK 3.3.5a. It provides local management for the game path, installed addons, patches, and configuration settings.
+**O**pen-source **W**ow **L**auncher for World of Warcraft Classic 1.12.1 and WoTLK 3.3.5a.
+
+<p align="center">
+  <img src="img/launcher.gif" width="100%" alt="OWL Preview">
+</p>
 
 ## Features
 
@@ -11,7 +15,7 @@
 
 ## Install
 
-Download the release from here and execute the launcher executable file.
+Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases).
 
 <!-- CHECKSUM_TABLE_START -->
 <!-- CHECKSUM_TABLE_END -->
