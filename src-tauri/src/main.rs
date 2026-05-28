@@ -899,9 +899,22 @@ fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Result<
         return Err(format!("Unsupported archive type: {}", ext));
     }
 
-    let entries: Vec<_> = fs::read_dir(extract_dir).map_err(|e| e.to_string())?.collect();
-    if entries.len() == 1 {
-        let entry = entries.into_iter().next().unwrap().map_err(|e| e.to_string())?;
+    let mut non_noise_entries = Vec::new();
+    if let Ok(read_dir) = fs::read_dir(extract_dir) {
+        for entry in read_dir {
+            if let Ok(entry) = entry {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("__MACOSX") {
+                    continue;
+                }
+                non_noise_entries.push(entry);
+            }
+        }
+    }
+
+    if non_noise_entries.len() == 1 {
+        let entry = &non_noise_entries[0];
         if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
             return Ok(entry.path());
         }
@@ -927,16 +940,63 @@ async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> std::
         let extract_dir = temp_dir.path().join("extracted");
         let source_path = extract_archive(&file_path, &extract_dir)?;
 
-        let target_name = source_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_else(|| file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("addon"));
-        let target_dir = addons_dir.join(target_name);
-        if target_dir.exists() {
-            fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+        if source_path == extract_dir {
+            let mut has_toc = false;
+            let mut sub_dirs = Vec::new();
+            if let Ok(read_dir) = fs::read_dir(&extract_dir) {
+                for entry in read_dir {
+                    if let Ok(entry) = entry {
+                        let name = entry.file_name();
+                        let name_str = name.to_string_lossy();
+                        if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("__MACOSX") {
+                            continue;
+                        }
+                        if let Ok(ft) = entry.file_type() {
+                            if ft.is_dir() {
+                                sub_dirs.push(entry.path());
+                            } else if name_str.to_lowercase().ends_with(".toc") {
+                                has_toc = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if has_toc || sub_dirs.is_empty() {
+                let target_name = file_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("addon");
+                let target_dir = addons_dir.join(target_name);
+                if target_dir.exists() {
+                    fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+                }
+                copy_dir_recursive(&extract_dir, &target_dir)?;
+                imported.push(target_name.to_string());
+            } else {
+                for sub_dir in sub_dirs {
+                    if let Some(sub_dir_name) = sub_dir.file_name().and_then(|n| n.to_str()) {
+                        let target_dir = addons_dir.join(sub_dir_name);
+                        if target_dir.exists() {
+                            fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+                        }
+                        copy_dir_recursive(&sub_dir, &target_dir)?;
+                        imported.push(sub_dir_name.to_string());
+                    }
+                }
+            }
+        } else {
+            let target_name = source_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_else(|| file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("addon"));
+            let target_dir = addons_dir.join(target_name);
+            if target_dir.exists() {
+                fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+            }
+            copy_dir_recursive(&source_path, &target_dir)?;
+            imported.push(target_name.to_string());
         }
-        copy_dir_recursive(&source_path, &target_dir)?;
-        imported.push(target_name.to_string());
     }
 
     Ok(format!("Imported addon(s): {}", imported.join(", ")))
