@@ -1,7 +1,10 @@
 name: Release Build
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test/Linter"]
+    types:
+      - completed
     branches:
       - 'release'
 
@@ -9,32 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Run Typecheck
-        run: npm run typecheck
-
-      - name: Run Linter
-        run: npm run lint
-
-      - name: Run Tests
-        run: npm run test
-
   bump-version:
-    needs: lint-and-test
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -58,7 +37,8 @@ jobs:
           BUMP_TYPE="patch"
           if [[ "$COMMIT_MSG" == *"#major"* ]]; then
             BUMP_TYPE="major"
-          elif [[ "$COMMIT_MSG" == *"#minor"* ]]; then
+          fi
+          if [[ "$COMMIT_MSG" == *"#minor"* ]]; then
             BUMP_TYPE="minor"
           fi
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
@@ -70,9 +50,7 @@ jobs:
       - name: Run version bump
         run: |
           npm version ${{ steps.determine_bump.outputs.bump_type }} --no-git-tag-version
-
           NEW_VER=$(node -e "console.log(require('./package.json').version)")
-
           node -e "
             const fs = require('fs');
             const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
@@ -93,7 +71,7 @@ jobs:
           git push origin HEAD:main || echo "No changes to push to main"
 
   publish-tauri:
-    needs: [lint-and-test, bump-version]
+    needs: [bump-version]
     permissions:
       contents: write
     strategy:
@@ -207,13 +185,10 @@ jobs:
           echo "" >> checksums-table.md
           cat checksums-table-only.md >> checksums-table.md
 
-
           echo "" >> checksums-table.md
           echo "### Installation Assets" >> checksums-table.md
 
-          # Fetch the current release body to preserve it
           gh release view "$TAG" --json body --jq .body > existing-body.txt
           cat existing-body.txt >> checksums-table.md
 
-          # Update the draft release notes and publish it (remove draft flag)
           gh release edit "$TAG" --notes-file checksums-table.md --draft=false --repo "$GITHUB_REPOSITORY"
