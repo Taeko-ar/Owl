@@ -4,9 +4,7 @@
 
 [![Test/Linter Status](https://github.com/Taeko-ar/Owl/actions/workflows/test-linter.yml/badge.svg)](https://github.com/Taeko-ar/Owl/actions/workflows/test-linter.yml)
 [![Release Build Status](https://github.com/Taeko-ar/Owl/actions/workflows/release.yml/badge.svg)](https://github.com/Taeko-ar/Owl/actions/workflows/release.yml)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Taeko-ar/Owl)](https://github.com/Taeko-ar/Owl/releases)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-blue.svg)](https://github.com/Taeko-ar/Owl/blob/main/LICENSE.md)
-[![GitHub stars](https://img.shields.io/github/stars/Taeko-ar/Owl)](https://github.com/Taeko-ar/Owl/stargazers)
 <p align="center">
   <img src="img/launcher.gif" width="100%" alt="OWL Preview">
 </p>
