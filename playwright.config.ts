@@ -32,7 +32,7 @@ export default defineConfig({
     },
   ],
 
-  webServer: process.env.PLAYWRIGHT_PROJECT === 'tauri-native' ? undefined : {
+  webServer: (process.env.CI || process.env.PLAYWRIGHT_PROJECT === 'tauri-native') ? undefined : {
     command: 'npm run preview',
     url: 'http://localhost:4173',
     reuseExistingServer: true,

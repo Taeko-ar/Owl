@@ -17,12 +17,20 @@ jobs:
         node-version: lts/*
     - name: Install dependencies
       run: npm ci
+    - name: Build Web Assets
+      run: npx vite build
+    - name: Start Preview Server
+      run: npm run preview &
+    - name: Wait for Server
+      run: npx wait-on http://localhost:4173 --timeout 60000
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Unit Tests
       run: npm run unit
     - name: Run Playwright Automation Tests
       run: npm run automation
+      env:
+        DEBUG: pw:webserver
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
