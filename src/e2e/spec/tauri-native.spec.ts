@@ -27,7 +27,8 @@ const CDP_URL = process.env.OWL_CDP_URL ?? 'http://localhost:9222';
 
 // ─── Fixture: connect to the running Tauri app via CDP ───────────────────────
 const tauriTest = test.extend<{ owl: Page }>({
-  owl: async (_, use) => {
+  // eslint-disable-next-line
+  owl: async ({ }, use) => {
     const browser = await chromium.connectOverCDP(CDP_URL);
     const contexts = browser.contexts();
     if (contexts.length === 0)
