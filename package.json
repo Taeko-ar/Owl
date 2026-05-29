@@ -6,7 +6,7 @@
     "dev": "tauri dev",
     "tauri": "tauri",
     "build": "vite build && tauri build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.js",
     "lint:fix": "eslint . --ext .ts,.tsx,.js --fix",
