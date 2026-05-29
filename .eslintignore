@@ -3,3 +3,5 @@ dist/
 src-tauri/target/
 src-tauri/icons/icon.ico
 coverage/
+playwright-report/
+test-results/

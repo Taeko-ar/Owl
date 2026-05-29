@@ -27,12 +27,15 @@ const CDP_URL = process.env.OWL_CDP_URL ?? 'http://localhost:9222';
 
 // ─── Fixture: connect to the running Tauri app via CDP ───────────────────────
 const tauriTest = test.extend<{ owl: Page }>({
-  owl: async ({ }, use) => {
+  owl: async (_, use) => {
     const browser = await chromium.connectOverCDP(CDP_URL);
     const contexts = browser.contexts();
-    if (contexts.length === 0) throw new Error(`No browser context found at ${CDP_URL}. Is the Tauri app running with --remote-debugging-port=9222?`);
+    if (contexts.length === 0)
+      throw new Error(
+        `No browser context found at ${CDP_URL}. Is the Tauri app running with --remote-debugging-port=9222?`
+      );
     const pages = contexts[0].pages();
-    const page = pages[0] ?? await contexts[0].newPage();
+    const page = pages[0] ?? (await contexts[0].newPage());
 
     // Wait for the app to fully mount
     await page.waitForSelector('[data-tab="addons"]', { timeout: 15_000 });
@@ -91,7 +94,7 @@ tauriTest.describe.skip('Tauri: Theme Toggle @tauri', () => {
   tauriTest('toggles light/dark mode on body', async ({ owl }) => {
     const navbar = new NavbarPage(owl);
     const body = owl.locator('body');
-    const wasDark = !(await body.getAttribute('class') ?? '').includes('light-mode');
+    const wasDark = !((await body.getAttribute('class')) ?? '').includes('light-mode');
 
     await navbar.toggleTheme();
     if (wasDark) {
@@ -143,10 +146,13 @@ tauriTest.describe.skip('Tauri: Settings Modal @tauri', () => {
 tauriTest.describe.skip('Tauri: Addons Tab (real backend) @tauri', () => {
   tauriTest('shows either addons list or empty state (never both)', async ({ owl }) => {
     // Wait for loading to complete
-    await owl.waitForFunction(() => {
-      const progress = document.getElementById('activityProgress');
-      return !progress || progress.style.width === '0%' || progress.style.width === '';
-    }, { timeout: 10_000 });
+    await owl.waitForFunction(
+      () => {
+        const progress = document.getElementById('activityProgress');
+        return !progress || progress.style.width === '0%' || progress.style.width === '';
+      },
+      { timeout: 10_000 }
+    );
 
     const addonsList = owl.locator('#addons-list');
     const emptyMsg = owl.locator('#addons-empty');
@@ -205,8 +211,8 @@ tauriTest.describe.skip('Tauri: Store Modal (real API) @tauri', () => {
 
     // Wait for real API results — may be slow on first load
     await expect(store.listContainer).toBeVisible();
-    await owl.waitForFunction(() =>
-      document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
+    await owl.waitForFunction(
+      () => document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
       { timeout: 15_000 }
     );
 
@@ -220,8 +226,8 @@ tauriTest.describe.skip('Tauri: Store Modal (real API) @tauri', () => {
     const store = new StorePage(owl);
 
     await navbar.getAddonsBtn.click();
-    await owl.waitForFunction(() =>
-      document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
+    await owl.waitForFunction(
+      () => document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
       { timeout: 15_000 }
     );
 
@@ -241,8 +247,8 @@ tauriTest.describe.skip('Tauri: Store Modal (real API) @tauri', () => {
     await store.githubTab.click();
 
     // GitHub API can be slow — give it up to 15s
-    await owl.waitForFunction(() =>
-      document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
+    await owl.waitForFunction(
+      () => document.querySelectorAll('#storeListContainer .store-addon-card').length > 0,
       { timeout: 15_000 }
     );
 

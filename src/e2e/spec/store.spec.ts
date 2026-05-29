@@ -51,7 +51,9 @@ test.describe('Store Modal — CurseForge Tab', () => {
     await expect(store.addonCard('Deadly Boss Mods')).toBeVisible();
   });
 
-  test('CurseForge tab is active by default and category filters are visible', async ({ appPage }) => {
+  test('CurseForge tab is active by default and category filters are visible', async ({
+    appPage,
+  }) => {
     const store = new StorePage(appPage);
     await expect(store.curseforgeTab).toHaveClass(/active/);
     await expect(store.categoryFilters).toBeVisible();
@@ -218,8 +220,8 @@ test.describe.skip('Store Modal — GitHub Tab Search', () => {
     await addonsPage.waitForTimeout(400);
     await store.githubTab.click();
     // Wait for GitHub results to replace CurseForge results (CF mock=2, GH mock=1)
-    await addonsPage.waitForFunction(() =>
-      document.querySelectorAll('#storeListContainer .store-addon-card').length <= 2,
+    await addonsPage.waitForFunction(
+      () => document.querySelectorAll('#storeListContainer .store-addon-card').length <= 2,
       { timeout: 6000 }
     );
     const count = await store.addonCards().count();

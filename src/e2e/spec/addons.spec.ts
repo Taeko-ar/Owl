@@ -22,28 +22,34 @@ test.describe.skip('Addons Tab — With Installed Addons', () => {
     await expect(addons.addonCards()).toHaveCount(3);
   });
 
-  testWithAddons('each addon card has a toggle, delete, and open-folder button', async ({ addonsPage }) => {
-    const addons = new AddonsPage(addonsPage);
-    const firstCard = addons.addonCards().first();
-    await expect(firstCard.locator('.addon-toggle')).toBeAttached();
-    await expect(firstCard.locator('.delete-addon')).toBeVisible();
-    await expect(firstCard.locator('.open-addon')).toBeVisible();
-  });
+  testWithAddons(
+    'each addon card has a toggle, delete, and open-folder button',
+    async ({ addonsPage }) => {
+      const addons = new AddonsPage(addonsPage);
+      const firstCard = addons.addonCards().first();
+      await expect(firstCard.locator('.addon-toggle')).toBeAttached();
+      await expect(firstCard.locator('.delete-addon')).toBeVisible();
+      await expect(firstCard.locator('.open-addon')).toBeVisible();
+    }
+  );
 
   testWithAddons('search input is visible when addon list has items', async ({ addonsPage }) => {
     const addons = new AddonsPage(addonsPage);
     await expect(addons.searchInput).toBeVisible();
   });
 
-  testWithAddons('search clear button appears when typing and clears input', async ({ addonsPage }) => {
-    const addons = new AddonsPage(addonsPage);
-    await expect(addons.searchClearBtn).toBeHidden();
-    await addons.typeInSearch('GTFO');
-    await expect(addons.searchClearBtn).toBeVisible();
-    await addons.clearSearch();
-    await expect(addons.searchInput).toHaveValue('');
-    await expect(addons.searchClearBtn).toBeHidden();
-  });
+  testWithAddons(
+    'search clear button appears when typing and clears input',
+    async ({ addonsPage }) => {
+      const addons = new AddonsPage(addonsPage);
+      await expect(addons.searchClearBtn).toBeHidden();
+      await addons.typeInSearch('GTFO');
+      await expect(addons.searchClearBtn).toBeVisible();
+      await addons.clearSearch();
+      await expect(addons.searchInput).toHaveValue('');
+      await expect(addons.searchClearBtn).toBeHidden();
+    }
+  );
 });
 
 test.describe('Patches (Mods) Tab — Empty State', () => {

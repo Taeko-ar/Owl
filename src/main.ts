@@ -1324,7 +1324,9 @@ function setupStoreEvents() {
     }
 
     try {
-      detectedGameVersion = await invoke<string>('detect_game_version', { basePath: gamePath.value });
+      detectedGameVersion = await invoke<string>('detect_game_version', {
+        basePath: gamePath.value,
+      });
     } catch (err) {
       console.error('Failed to detect game version:', err);
       detectedGameVersion = '3.3.5a';
@@ -2245,27 +2247,55 @@ function renderGithubTagFilters() {
   const container = document.getElementById('githubTagFilters');
   if (!container) return;
 
-  const tags = detectedGameVersion === '1.12.1'
-    ? ['vanilla-wow', 'classic-wow', 'wow-classic', '1-12-1']
-    : ['wotlk', 'wow-classic', 'world-of-warcraft', 'warcraft'];
+  const tags =
+    detectedGameVersion === '1.12.1'
+      ? ['vanilla-wow', 'classic-wow', 'wow-classic', '1-12-1']
+      : ['wotlk', 'wow-classic', 'world-of-warcraft', 'warcraft'];
 
-  container.innerHTML = tags.map((tag, idx) => {
-    const isActive = idx === 0;
-    const activeClasses = 'bg-sky-600/20 border-sky-500 text-sky-400 hover:bg-sky-600/30 active';
-    const inactiveClasses = 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200';
-    return `<button class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none ${isActive ? activeClasses : inactiveClasses}" data-tag="${tag}">${tag}</button>`;
-  }).join('');
+  container.innerHTML = tags
+    .map((tag, idx) => {
+      const isActive = idx === 0;
+      const activeClasses = 'bg-sky-600/20 border-sky-500 text-sky-400 hover:bg-sky-600/30 active';
+      const inactiveClasses =
+        'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200';
+      return `<button class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none ${isActive ? activeClasses : inactiveClasses}" data-tag="${tag}">${tag}</button>`;
+    })
+    .join('');
 
   // Bind click listeners
   const pills = container.querySelectorAll('.github-tag-pill');
   pills.forEach((pill) => {
     pill.addEventListener('click', () => {
       if (pill.classList.contains('active')) {
-        pill.classList.remove('active', 'bg-sky-600/20', 'border-sky-500', 'text-sky-400', 'hover:bg-sky-600/30');
-        pill.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-slate-200');
+        pill.classList.remove(
+          'active',
+          'bg-sky-600/20',
+          'border-sky-500',
+          'text-sky-400',
+          'hover:bg-sky-600/30'
+        );
+        pill.classList.add(
+          'bg-slate-800',
+          'border-slate-700',
+          'text-slate-400',
+          'hover:bg-slate-700',
+          'hover:text-slate-200'
+        );
       } else {
-        pill.classList.add('active', 'bg-sky-600/20', 'border-sky-500', 'text-sky-400', 'hover:bg-sky-600/30');
-        pill.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-slate-200');
+        pill.classList.add(
+          'active',
+          'bg-sky-600/20',
+          'border-sky-500',
+          'text-sky-400',
+          'hover:bg-sky-600/30'
+        );
+        pill.classList.remove(
+          'bg-slate-800',
+          'border-slate-700',
+          'text-slate-400',
+          'hover:bg-slate-700',
+          'hover:text-slate-200'
+        );
       }
       triggerSearch();
     });

@@ -55,7 +55,9 @@ test.describe('Navigation & Layout', () => {
     await expect(navbar.importAddonBtn).toBeVisible();
   });
 
-  test('Open Folder button is hidden on addons tab and visible on mods tab', async ({ appPage }) => {
+  test('Open Folder button is hidden on addons tab and visible on mods tab', async ({
+    appPage,
+  }) => {
     const navbar = new NavbarPage(appPage);
     await expect(navbar.openFolderBtn).toBeHidden();
     await navbar.clickTab('mods');

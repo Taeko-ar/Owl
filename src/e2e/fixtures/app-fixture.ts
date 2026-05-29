@@ -30,8 +30,7 @@ export const test = base.extend<{
     const setter = async (cmd: string, response: unknown) => {
       await page.evaluate(
         ({ cmd, response }) => {
-          (window as any).__OWL_INVOKE_OVERRIDES__[cmd] = () =>
-            Promise.resolve(response);
+          (window as any).__OWL_INVOKE_OVERRIDES__[cmd] = () => Promise.resolve(response);
         },
         { cmd, response }
       );
