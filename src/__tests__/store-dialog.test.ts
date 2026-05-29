@@ -229,6 +229,12 @@ describe('Store Dialog', () => {
     getAddonsBtn.click();
     await new Promise((r) => setTimeout(r, 100));
 
+    const curseforgeTab = document.querySelector(
+      '.store-sidebar-tab[data-site="curseforge"]'
+    ) as HTMLButtonElement;
+    curseforgeTab?.click();
+    await new Promise((r) => setTimeout(r, 100));
+
     const searchInput = document.getElementById('storeSearchInput') as HTMLInputElement;
     searchInput.value = 'error';
     searchInput.dispatchEvent(new Event('input'));
