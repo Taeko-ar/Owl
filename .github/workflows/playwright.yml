@@ -4,6 +4,8 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
   test:
     timeout-minutes: 60
@@ -17,8 +19,10 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
+    - name: Run Unit Tests
+      run: npm run unit
+    - name: Run Playwright Automation Tests
+      run: npm run automation
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
