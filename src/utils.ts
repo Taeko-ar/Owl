@@ -633,6 +633,18 @@ export function escapeHtml(s: string) {
   );
 }
 
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script').forEach((n) => n.remove());
+  doc.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes || []).forEach((attr) => {
+      if (attr.name.startsWith('on')) node.removeAttribute(attr.name);
+    });
+  });
+  return doc.body.innerHTML;
+}
+
 export function formatWithColorCodes(s: string) {
   if (!s) return '';
   let out = '';
@@ -706,15 +718,7 @@ export function renderMarkdown(md: string, addonPath?: string) {
   const parts = s.split(/\n{2,}/).map((p) => p.replace(/\n/g, '<br>'));
   const html = parts.map((p) => `<p>${p}</p>`).join('');
 
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  doc.querySelectorAll('script').forEach((n) => n.remove());
-  doc.querySelectorAll('*').forEach((node) => {
-    Array.from(node.attributes || []).forEach((attr) => {
-      if (attr.name.startsWith('on')) node.removeAttribute(attr.name);
-    });
-  });
-
-  return doc.body.innerHTML;
+  return sanitizeHtml(html);
 }
 
 export function debounce<T extends (...args: any[]) => any>(fn: T, wait = 700) {

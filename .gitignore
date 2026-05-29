@@ -1,5 +1,5 @@
 # Node dependencies
-node_modules/
+/node_modules/
 
 # Build artifacts
 /dist/
@@ -18,7 +18,7 @@ pnpm-debug.log*
 *.log
 
 # Coverage
-coverage/
+/coverage/
 
 # Environment
 .env
@@ -26,4 +26,15 @@ coverage/
 .github/agents
 
 # Local history / workspace metadata
+/scripts/
 .history/
+/test_cdn/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+/allure-results/
+

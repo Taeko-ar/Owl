@@ -2,11 +2,10 @@
 
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path, Component};
 use std::process::Command;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
-use std::path::Path;
 use tempfile::TempDir;
 use zip::ZipArchive;
 use sevenz_rust;
@@ -14,7 +13,48 @@ use serde::{Deserialize, Serialize};
 use dirs::config_dir;
 use rfd::FileDialog;
 use tauri_plugin_updater::UpdaterExt;
+use tauri::Emitter;
+use sha1::{Sha1, Digest};
 
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(c) => normalized.push(c),
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::RootDir => {
+                normalized.push(Component::RootDir.as_os_str());
+            }
+            Component::Prefix(p) => {
+                normalized.push(p.as_os_str());
+            }
+            Component::CurDir => {}
+        }
+    }
+    normalized
+}
+
+fn is_valid_branch_name(branch: &str) -> bool {
+    if branch.is_empty() || branch.starts_with('-') || branch.contains("..") {
+        return false;
+    }
+    branch.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '/' || c == '-')
+}
+
+fn verify_sha1(file_path: &Path, expected_sha1: &str) -> std::result::Result<(), String> {
+    let mut file = fs::File::open(file_path).map_err(|e| e.to_string())?;
+    let mut hasher = Sha1::new();
+    std::io::copy(&mut file, &mut hasher).map_err(|e| e.to_string())?;
+    let hash = hasher.finalize();
+    let hash_hex = format!("{:x}", hash);
+    if hash_hex.eq_ignore_ascii_case(expected_sha1) {
+        Ok(())
+    } else {
+        Err(format!("SHA-1 mismatch: expected {}, got {}", expected_sha1, hash_hex))
+    }
+}
 
 #[tauri::command]
 fn launch_game(base_path: String, _stay_open: bool) -> std::result::Result<String, String> {
@@ -154,9 +194,17 @@ fn get_patches(base_path: String) -> std::result::Result<Vec<String>, String> {
 
 #[tauri::command]
 fn toggle_patch(base_path: String, patch_name: String, enable: bool) -> std::result::Result<String, String> {
+    if patch_name.contains("..") || patch_name.contains('/') || patch_name.contains('\\') {
+        return Err("Invalid patch name".into());
+    }
     let data_dir = PathBuf::from(&base_path).join("Data");
     if !data_dir.exists() {
         return Err("Data directory not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_data = fs::canonicalize(&data_dir).map_err(|e| e.to_string())?;
+    if !canonical_data.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
 
     let p = Path::new(&patch_name);
@@ -258,17 +306,17 @@ struct OwlAddonMeta {
     commit_sha: String,
 }
 
-fn fetch_latest_commit_sha(owner: &str, repo: &str, branch: &str) -> std::result::Result<String, String> {
-    let client = reqwest::blocking::Client::builder()
+async fn fetch_latest_commit_sha(owner: &str, repo: &str, branch: &str) -> std::result::Result<String, String> {
+    let client = reqwest::Client::builder()
         .user_agent("OWL-Launcher")
         .build()
         .map_err(|e| e.to_string())?;
     let url = format!("https://api.github.com/repos/{}/{}/commits/{}", owner, repo, branch);
-    let resp = client.get(&url).send().map_err(|e| e.to_string())?;
+    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
         return Err(format!("API error: {}", resp.status()));
     }
-    let text = resp.text().map_err(|e| e.to_string())?;
+    let text = resp.text().await.map_err(|e| e.to_string())?;
     let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let sha = json["sha"].as_str().ok_or("No SHA found in API response")?;
     Ok(sha.to_string())
@@ -322,14 +370,14 @@ fn run_git_command(path: &Path, args: &[&str]) -> std::result::Result<String, St
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-fn get_addon_git_status(addon_path: &Path) -> Option<AddonGitStatus> {
+async fn get_addon_git_status(addon_path: &Path) -> Option<AddonGitStatus> {
     if !addon_path.join(".git").exists() {
         let meta_path = addon_path.join(".owl-meta.json");
         if meta_path.exists() {
             if let Ok(content) = fs::read_to_string(&meta_path) {
                 if let Ok(owl_meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
                     if let Ok((owner, repo, _)) = parse_github_repo_url(&owl_meta.remote_url) {
-                        if let Ok(latest_sha) = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch) {
+                        if let Ok(latest_sha) = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch).await {
                             let has_update = latest_sha != owl_meta.commit_sha;
                             return Some(AddonGitStatus {
                                 remote_url: Some(owl_meta.remote_url),
@@ -470,7 +518,7 @@ fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<Addon
     }
 
     let addon_path_str = addon_path.to_string_lossy().to_string();
-    let has_git = addon_path.join(".git").exists();
+    let has_git = addon_path.join(".git").exists() || addon_path.join(".owl-meta.json").exists();
 
     Ok(AddonMeta {
         name: addon_name,
@@ -494,14 +542,28 @@ async fn check_addon_git_status(base_path: String, addon_name: String) -> std::r
     if !addon_path.exists() || !addon_path.is_dir() {
         return Err("Addon folder not found".into());
     }
-    Ok(get_addon_git_status(&addon_path))
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_addon = fs::canonicalize(&addon_path).map_err(|e| e.to_string())?;
+    if !canonical_addon.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
+    }
+    Ok(get_addon_git_status(&addon_path).await)
 }
 
 #[tauri::command]
+#[allow(dead_code)]
 async fn change_addon_branch(base_path: String, addon_name: String, branch_name: String) -> std::result::Result<String, String> {
+    if !is_valid_branch_name(&branch_name) {
+        return Err("Invalid branch name".into());
+    }
     let addon_path = PathBuf::from(&base_path).join("Interface").join("AddOns").join(&addon_name);
     if !addon_path.exists() || !addon_path.is_dir() {
         return Err("Addon folder not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_addon = fs::canonicalize(&addon_path).map_err(|e| e.to_string())?;
+    if !canonical_addon.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
     run_git_command(&addon_path, &["checkout", &branch_name])
         .map_err(|e| format!("Failed to checkout branch '{}': {}", branch_name, e))
@@ -518,13 +580,19 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
     if !addon_path.exists() || !addon_path.is_dir() {
         return Err("Addon folder not found".into());
     }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_addon = fs::canonicalize(&addon_path).map_err(|e| e.to_string())?;
+    if !canonical_addon.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
+    }
+
     if !addon_path.join(".git").exists() {
         let meta_path = addon_path.join(".owl-meta.json");
         if meta_path.exists() {
             if let Ok(content) = fs::read_to_string(&meta_path) {
                 if let Ok(owl_meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
                     let (owner, repo, _) = parse_github_repo_url(&owl_meta.remote_url)?;
-                    let client = reqwest::blocking::Client::builder()
+                    let client = reqwest::Client::builder()
                         .user_agent("OWL-Launcher")
                         .build()
                         .map_err(|e| e.to_string())?;
@@ -534,17 +602,18 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
                         owner, repo, owl_meta.branch
                     );
 
-                    let mut resp = client.get(&zip_url).send().map_err(|e| e.to_string())?;
+                    let resp = client.get(&zip_url).send().await.map_err(|e| e.to_string())?;
                     if !resp.status().is_success() {
                         return Err(format!("Failed to download zip: {}", resp.status()));
                     }
 
-                    let latest_sha = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch)?;
+                    let latest_sha = fetch_latest_commit_sha(&owner, &repo, &owl_meta.branch).await?;
 
                     let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
                     let zip_path = temp_dir.path().join("addon.zip");
                     let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-                    resp.copy_to(&mut file).map_err(|e| e.to_string())?;
+                    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+                    std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
 
                     let extract_dir = temp_dir.path().join("extract");
                     let extracted_root = extract_archive(&zip_path, &extract_dir)?;
@@ -573,11 +642,11 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
         let _ = run_git_command(&addon_path, &["stash"]);
     }
 
-    let res = (|| -> std::result::Result<String, String> {
+    let res = async {
         run_git_command(&addon_path, &["fetch", "--quiet", "--all", "--prune"])
             .map_err(|e| format!("Failed to fetch remote repository: {}", e))?;
 
-        let status = get_addon_git_status(&addon_path).ok_or("Unable to determine addon git status")?;
+        let status = get_addon_git_status(&addon_path).await.ok_or("Unable to determine addon git status")?;
 
         if status.update_available == Some(false) {
             return Ok(format!("Addon '{}' is already up to date", addon_name));
@@ -587,7 +656,7 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
             .map_err(|e| format!("Failed to pull latest addon changes: {}", e))?;
 
         Ok(format!("Updated addon '{}'{}", addon_name, status.branch.map(|b| format!(" on branch {}", b)).unwrap_or_default()))
-    })();
+    }.await;
 
     if changed {
         let _ = run_git_command(&addon_path, &["stash", "pop"]);
@@ -598,9 +667,17 @@ async fn update_addon(base_path: String, addon_name: String) -> std::result::Res
 
 #[tauri::command]
 fn toggle_addon(base_path: String, addon_name: String, enable: bool) -> std::result::Result<String, String> {
+    if addon_name.contains("..") || addon_name.contains('/') || addon_name.contains('\\') {
+        return Err("Invalid addon name".into());
+    }
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
     if !addons_dir.exists() {
         return Err("AddOns directory not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_addons = fs::canonicalize(&addons_dir).map_err(|e| e.to_string())?;
+    if !canonical_addons.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
 
     let base_name = if addon_name.ends_with("-disabled") {
@@ -754,13 +831,22 @@ fn parse_github_repo_url(repo_url: &str) -> std::result::Result<(String, String,
     let owner = parts[1].to_string();
     let repo = parts[2].trim_end_matches(".git").to_string();
     let branch = if parts.len() > 4 && (parts[3] == "tree" || parts[3] == "blob") {
-        Some(parts[4].to_string())
-    } else if parts.len() > 3 && parts[3] == "archive" {
-        if parts.len() > 6 && parts[4] == "refs" && (parts[5] == "heads" || parts[5] == "tags") {
-            parts.get(6).map(|s| s.to_string())
-        } else {
-            parts.get(4).map(|s| s.to_string())
+        let b = parts[4].to_string();
+        if !is_valid_branch_name(&b) {
+            return Err("Invalid branch name in URL".into());
         }
+        Some(b)
+    } else if parts.len() > 3 && parts[3] == "archive" {
+        let b = if parts.len() > 6 && parts[4] == "refs" && (parts[5] == "heads" || parts[5] == "tags") {
+            parts[6].to_string()
+        } else {
+            parts[4].to_string()
+        };
+        let b_clean = b.strip_suffix(".zip").unwrap_or(&b).to_string();
+        if !is_valid_branch_name(&b_clean) {
+            return Err("Invalid branch name in URL".into());
+        }
+        Some(b_clean)
     } else {
         None
     };
@@ -814,7 +900,7 @@ async fn import_addon(base_path: String, repo_url: String) -> std::result::Resul
 
         Ok(format!("Imported addon {} from GitHub", repo))
     } else {
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .user_agent("OWL-Launcher")
             .build()
             .map_err(|e| e.to_string())?;
@@ -825,14 +911,14 @@ async fn import_addon(base_path: String, repo_url: String) -> std::result::Resul
             owner, repo, branch_name
         );
 
-        let mut resp = client.get(&zip_url).send().map_err(|e| e.to_string())?;
+        let mut resp = client.get(&zip_url).send().await.map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
             if branch_name == "main" {
                 let fallback_url = format!(
                     "https://github.com/{}/{}/archive/refs/heads/master.zip",
                     owner, repo
                 );
-                let resp2 = client.get(&fallback_url).send().map_err(|e| e.to_string())?;
+                let resp2 = client.get(&fallback_url).send().await.map_err(|e| e.to_string())?;
                 if resp2.status().is_success() {
                     resp = resp2;
                 } else {
@@ -843,12 +929,13 @@ async fn import_addon(base_path: String, repo_url: String) -> std::result::Resul
             }
         }
 
-        let latest_sha = fetch_latest_commit_sha(&owner, &repo, &branch_name).unwrap_or_default();
+        let latest_sha = fetch_latest_commit_sha(&owner, &repo, &branch_name).await.unwrap_or_default();
 
         let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
         let zip_path = temp_dir.path().join("addon.zip");
         let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-        resp.copy_to(&mut file).map_err(|e| e.to_string())?;
+        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+        std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
 
         let extract_dir = temp_dir.path().join("extract");
         let extracted_root = extract_archive(&zip_path, &extract_dir)?;
@@ -876,12 +963,19 @@ fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Result<
         .map(|s| s.to_lowercase())
         .ok_or("Unable to determine archive type".to_string())?;
 
+    let canonical_extract_dir = normalize_path(extract_dir);
+
     if ext == "zip" {
         let reader = fs::File::open(file_path).map_err(|e| e.to_string())?;
         let mut zip = ZipArchive::new(reader).map_err(|e| e.to_string())?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
-            let outpath = extract_dir.join(file.mangled_name());
+            let mangled = file.mangled_name();
+            let outpath = extract_dir.join(&mangled);
+            let normalized_outpath = normalize_path(&outpath);
+            if !normalized_outpath.starts_with(&canonical_extract_dir) {
+                return Err(format!("Vulnerability detected: Zip Slip path traversal attempt: {}", mangled.display()));
+            }
             if file.name().ends_with('/') {
                 fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
                 continue;
@@ -1004,9 +1098,17 @@ async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> std::
 
 #[tauri::command]
 fn open_addon_folder(base_path: String, addon_name: String) -> std::result::Result<String, String> {
+    if addon_name.contains("..") || addon_name.contains('/') || addon_name.contains('\\') {
+        return Err("Invalid addon name".into());
+    }
     let folder = PathBuf::from(&base_path).join("Interface").join("AddOns").join(&addon_name);
     if !folder.exists() {
         return Err("Addon folder not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_folder = fs::canonicalize(&folder).map_err(|e| e.to_string())?;
+    if !canonical_folder.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
 
     #[cfg(target_os = "windows")]
@@ -1077,9 +1179,17 @@ fn set_window_size(window: tauri::Window, width: f64, height: f64) -> std::resul
 
 #[tauri::command]
 fn open_folder(base_path: String, rel_path: String) -> std::result::Result<String, String> {
-    let folder = PathBuf::from(&base_path).join(rel_path);
+    if rel_path.contains("..") {
+        return Err("Directory traversal attempt blocked".into());
+    }
+    let folder = PathBuf::from(&base_path).join(&rel_path);
     if !folder.exists() {
         return Err("Folder not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_folder = fs::canonicalize(&folder).map_err(|e| e.to_string())?;
+    if !canonical_folder.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
 
     #[cfg(target_os = "windows")]
@@ -1132,9 +1242,17 @@ fn pick_files() -> std::result::Result<Vec<String>, String> {
 
 #[tauri::command]
 fn delete_patch(base_path: String, patch_name: String) -> std::result::Result<String, String> {
+    if patch_name.contains("..") || patch_name.contains('/') || patch_name.contains('\\') {
+        return Err("Invalid patch name".into());
+    }
     let patch_path = PathBuf::from(&base_path).join("Data").join(&patch_name);
     if !patch_path.exists() {
         return Err("Patch file not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_path = fs::canonicalize(&patch_path).map_err(|e| e.to_string())?;
+    if !canonical_path.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
     fs::remove_file(&patch_path)
         .map_err(|e| format!("Failed to delete patch: {}", e))?;
@@ -1142,22 +1260,284 @@ fn delete_patch(base_path: String, patch_name: String) -> std::result::Result<St
 }
 
 #[tauri::command]
+fn detect_game_version(base_path: String) -> String {
+    let base_path_buf = std::path::PathBuf::from(&base_path);
+    let data_dir = base_path_buf.join("Data");
+    if data_dir.is_dir() {
+        // Check direct file
+        if data_dir.join("lichking.MPQ").exists() || data_dir.join("lichking.mpq").exists() {
+            return "3.3.5a".to_string();
+        }
+        // Check localized subdirectories
+        if let Ok(entries) = std::fs::read_dir(&data_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if entry.path().join("lichking.MPQ").exists() || entry.path().join("lichking.mpq").exists() {
+                        return "3.3.5a".to_string();
+                    }
+                }
+            }
+        }
+    }
+    "1.12.1".to_string()
+}
+
+#[tauri::command]
 fn delete_addon(base_path: String, addon_name: String) -> std::result::Result<String, String> {
+    if addon_name.contains("..") || addon_name.contains('/') || addon_name.contains('\\') {
+        return Err("Invalid addon name".into());
+    }
     let addon_path = PathBuf::from(&base_path).join("Interface").join("AddOns").join(&addon_name);
     if !addon_path.exists() {
         return Err("Addon folder not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_path = fs::canonicalize(&addon_path).map_err(|e| e.to_string())?;
+    if !canonical_path.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
     }
     fs::remove_dir_all(&addon_path)
         .map_err(|e| format!("Failed to delete addon: {}", e))?;
     Ok(format!("Deleted {}", addon_name))
 }
 
+// By using this key in your builds you accept the terms and conditions laid down in
+// https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions
+// NOTE: CurseForge requires you to change this if you make any kind of derivative work.
+// This key was issued specifically for Owl
+const CURSEFORGE_API_KEY: &str = "$2a$10$iY/ujXomVXZgD5J7Rl3PAuhnTzVTIFsqehxEsq5EMM2pRfxlezEHS";
+
+fn get_curseforge_base_url(is_mock: bool) -> &'static str {
+    if is_mock {
+        "http://localhost:8080"
+    } else {
+        "https://api.curseforge.com"
+    }
+}
+
+#[tauri::command]
+async fn search_curseforge_addons(
+    query: String,
+    category_id: Option<i32>,
+    game_version: String,
+    is_mock: bool,
+) -> std::result::Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let base_url = get_curseforge_base_url(is_mock);
+    let url = if is_mock {
+        let game_ver = if game_version == "1.12.1" { "1.12.1" } else { "3.3.5" };
+        format!(
+            "{}/v1/mods/search?gameId=1&classId=6&gameVersion={}&searchFilter={}",
+            base_url, game_ver, query
+        )
+    } else {
+        let version_type_id = if game_version == "1.12.1" { 67408 } else { 73713 };
+        let mut base_query = format!(
+            "{}/v1/mods/search?gameId=1&gameVersionTypeId={}&sortField=2&sortOrder=desc&searchFilter={}",
+            base_url, version_type_id, query
+        );
+        if let Some(cat_id) = category_id {
+            base_query = format!("{}&categoryId={}", base_query, cat_id);
+        }
+        base_query
+    };
+
+    let mut req = client.get(&url);
+    if !is_mock && CURSEFORGE_API_KEY != "MOCK" {
+        req = req.header("x-api-key", CURSEFORGE_API_KEY);
+    }
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("CurseForge API returned status: {}", resp.status()));
+    }
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+async fn get_curseforge_mod_files(mod_id: i32, is_mock: bool) -> std::result::Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let base_url = get_curseforge_base_url(is_mock);
+    let url = format!("{}/v1/mods/{}/files", base_url, mod_id);
+
+    let mut req = client.get(&url);
+    if !is_mock && CURSEFORGE_API_KEY != "MOCK" {
+        req = req.header("x-api-key", CURSEFORGE_API_KEY);
+    }
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("CurseForge API returned status: {}", resp.status()));
+    }
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+async fn get_curseforge_mod_description(mod_id: i32, is_mock: bool) -> std::result::Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let base_url = get_curseforge_base_url(is_mock);
+    let url = format!("{}/v1/mods/{}/description", base_url, mod_id);
+
+    let mut req = client.get(&url);
+    if !is_mock && CURSEFORGE_API_KEY != "MOCK" {
+        req = req.header("x-api-key", CURSEFORGE_API_KEY);
+    }
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("CurseForge API returned status: {}", resp.status()));
+    }
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let html = json["data"].as_str().unwrap_or("No description available.").to_string();
+    Ok(html)
+}
+
+
+#[tauri::command]
+async fn download_and_extract_addon(base_path: String, url: String, sha1: Option<String>) -> std::result::Result<String, String> {
+    let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
+    if !addons_dir.exists() {
+        fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("Failed to download addon: HTTP {}", resp.status()));
+    }
+
+    let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
+    let ext = if url.to_lowercase().ends_with(".7z") {
+        "7z"
+    } else {
+        "zip"
+    };
+    let zip_path = temp_dir.path().join(format!("addon.{}", ext));
+    let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
+
+    if let Some(ref expected_sha1) = sha1 {
+        verify_sha1(&zip_path, expected_sha1)?;
+    }
+
+    let extract_dir = temp_dir.path().join("extract");
+    let source_path = extract_archive(&zip_path, &extract_dir)?;
+
+    let mut imported = Vec::new();
+
+    if source_path == extract_dir {
+        let mut has_toc = false;
+        let mut sub_dirs = Vec::new();
+        if let Ok(read_dir) = fs::read_dir(&extract_dir) {
+            for entry in read_dir {
+                if let Ok(entry) = entry {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("__MACOSX") {
+                        continue;
+                    }
+                    if let Ok(ft) = entry.file_type() {
+                        if ft.is_dir() {
+                            sub_dirs.push(entry.path());
+                        } else if name_str.to_lowercase().ends_with(".toc") {
+                            has_toc = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if has_toc || sub_dirs.is_empty() {
+            let target_name = Path::new(&url)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("addon");
+            let target_dir = addons_dir.join(target_name);
+            if target_dir.exists() {
+                fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+            }
+            copy_dir_recursive(&extract_dir, &target_dir)?;
+            imported.push(target_name.to_string());
+        } else {
+            for sub_dir in sub_dirs {
+                if let Some(sub_dir_name) = sub_dir.file_name().and_then(|n| n.to_str()) {
+                    let target_dir = addons_dir.join(sub_dir_name);
+                    if target_dir.exists() {
+                        fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+                    }
+                    copy_dir_recursive(&sub_dir, &target_dir)?;
+                    imported.push(sub_dir_name.to_string());
+                }
+            }
+        }
+    } else {
+        let target_name = source_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("addon");
+        let target_dir = addons_dir.join(target_name);
+        if target_dir.exists() {
+            fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+        }
+        copy_dir_recursive(&source_path, &target_dir)?;
+        imported.push(target_name.to_string());
+    }
+
+    Ok(format!("Successfully imported: {}", imported.join(", ")))
+}
+
 async fn check_for_updates(app: tauri::AppHandle) -> std::result::Result<(), String> {
-    if let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? {
-        update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
-        app.restart();
+    if let Some(_update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? {
+        let _ = app.emit("update-available", ());
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> std::result::Result<String, String> {
+    let confirmed = rfd::MessageDialog::new()
+        .set_title("Update Available")
+        .set_description("A new update is available. Do you want to download and install it now?")
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show();
+
+    if confirmed == rfd::MessageDialogResult::Yes {
+        if let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? {
+            update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+            app.restart();
+            #[allow(unreachable_code)]
+            Ok("Update installed successfully, restarting...".into())
+        } else {
+            Err("No update found".into())
+        }
+    } else {
+        Ok("Update canceled by user".into())
+    }
 }
 
 fn main() {
@@ -1185,11 +1565,17 @@ fn main() {
             save_settings,
             delete_patch,
             delete_addon,
+            detect_game_version,
             minimize_window,
             close_window,
             set_window_size,
             check_addon_git_status,
-            change_addon_branch
+            change_addon_branch,
+            search_curseforge_addons,
+            get_curseforge_mod_files,
+            get_curseforge_mod_description,
+            download_and_extract_addon,
+            install_update
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

@@ -1,11 +1,13 @@
 import './style.css';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import {
   debounce,
   escapeHtml,
   formatWithColorCodes,
   getConfigMetadata,
   renderMarkdown,
+  sanitizeHtml,
   showTextInputModal,
   showToast,
   setLoadingState,
@@ -15,7 +17,7 @@ import {
 import { setLauncherWindowSize } from './main-utils';
 import { translations, getTranslation, translateDOM, setAppLanguage } from './i18n';
 
-export { translations, getTranslation, translateDOM, setAppLanguage };
+export { translations, getTranslation, translateDOM, setAppLanguage, setupSearchHoverBehavior };
 
 const navTabs = document.querySelectorAll('.nav-tab');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -196,7 +198,9 @@ async function loadAddonsAndPatches() {
       document.querySelectorAll('.delete-addon').forEach((btn) => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          const addon = (e.currentTarget as HTMLButtonElement).getAttribute('data-addon');
+          const addon = (e.currentTarget as HTMLButtonElement).getAttribute('data-addon') || '';
+          const msg = getTranslation('store.confirmDeleteAddon', { name: addon });
+          if (!confirm(msg)) return;
           try {
             await invoke('delete_addon', { basePath: gamePath.value, addonName: addon });
             await loadAddonsAndPatches();
@@ -447,7 +451,9 @@ async function loadAddonsAndPatches() {
 
       document.querySelectorAll('.delete-patch').forEach((btn) => {
         btn.addEventListener('click', async (e) => {
-          const patch = (e.currentTarget as HTMLButtonElement).getAttribute('data-patch');
+          const patch = (e.currentTarget as HTMLButtonElement).getAttribute('data-patch') || '';
+          const msg = getTranslation('store.confirmDeletePatch', { name: patch });
+          if (!confirm(msg)) return;
           try {
             await invoke('delete_patch', { basePath: gamePath.value, patchName: patch });
             await loadAddonsAndPatches();
@@ -469,6 +475,14 @@ async function loadAddonsAndPatches() {
     statusFooter.textContent = `Error loading files: ${error}`;
   } finally {
     clearLoadingState(statusFooter, activityProgress);
+    const addonsSearch = document.getElementById('addons-search') as HTMLInputElement | null;
+    if (addonsSearch && addonsSearch.value) {
+      addonsSearch.dispatchEvent(new Event('input'));
+    }
+    const patchesSearch = document.getElementById('patches-search') as HTMLInputElement | null;
+    if (patchesSearch && patchesSearch.value) {
+      patchesSearch.dispatchEvent(new Event('input'));
+    }
   }
 }
 
@@ -899,7 +913,6 @@ async function loadConfig() {
     clearLoadingState(statusFooter, activityProgress);
   }
 }
-
 navTabs.forEach((tab) => {
   tab.addEventListener('click', async () => {
     const tabName = tab.getAttribute('data-tab');
@@ -913,15 +926,19 @@ navTabs.forEach((tab) => {
 
     const importBtn = document.getElementById('importAddonBtn');
     const openModsBtn = document.getElementById('openModsFolder');
+    const getAddonsBtn = document.getElementById('getAddonsBtn');
     if (importBtn && openModsBtn) {
       if (tabName === 'addons') {
         importBtn.classList.remove('hidden');
+        getAddonsBtn?.classList.remove('hidden');
         openModsBtn.classList.add('hidden');
       } else if (tabName === 'mods') {
         importBtn.classList.add('hidden');
+        getAddonsBtn?.classList.add('hidden');
         openModsBtn.classList.remove('hidden');
       } else {
         importBtn.classList.add('hidden');
+        getAddonsBtn?.classList.add('hidden');
         openModsBtn.classList.add('hidden');
       }
     }
@@ -1204,22 +1221,1293 @@ document.querySelectorAll('.lang-option').forEach((btn) => {
 if (statusFooter) {
   loadSavedSettings().then(() => {
     translateDOM();
+    setupStoreEvents();
+    setupMainSearchEvents();
+    setupSearchHoverBehavior();
     loadAddonsAndPatches();
     const activeTab = document.querySelector('.nav-tab.active');
     const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'addons';
     const importBtn = document.getElementById('importAddonBtn');
     const openModsBtn = document.getElementById('openModsFolder');
+    const getAddonsBtn = document.getElementById('getAddonsBtn');
     if (importBtn && openModsBtn && tabName) {
       if (tabName === 'addons') {
         importBtn.classList.remove('hidden');
+        getAddonsBtn?.classList.remove('hidden');
         openModsBtn.classList.add('hidden');
       } else if (tabName === 'mods') {
         importBtn.classList.add('hidden');
+        getAddonsBtn?.classList.add('hidden');
         openModsBtn.classList.remove('hidden');
       } else {
         importBtn.classList.add('hidden');
+        getAddonsBtn?.classList.add('hidden');
         openModsBtn.classList.add('hidden');
       }
     }
   });
 }
+
+// Store implementation and search functions
+interface CatalogAddon {
+  name: string;
+  title: string;
+  description: string;
+  downloadUrl?: string;
+  modId?: number;
+  logoUrl?: string;
+  authors?: string;
+  websiteUrl?: string;
+  issuesUrl?: string;
+  sourceUrl?: string;
+  donationUrl?: string;
+}
+
+interface AddonVersion {
+  id: number;
+  displayName: string;
+  fileName: string;
+  releaseType: number; // 1 = Release, 2 = Beta, 3 = Alpha
+  downloadUrl: string;
+  gameVersions: string[];
+  sha1?: string | null;
+}
+
+// Map of key -> { addon: CatalogAddon, selectedVersion: AddonVersion }
+const selectedAddons = new Map<string, { addon: CatalogAddon; selectedVersion: AddonVersion }>();
+let currentActiveSite: 'curseforge' | 'mock' | 'github' = 'curseforge';
+let selectedDetailAddon: CatalogAddon | null = null;
+let selectedDetailAddonKey = '';
+let currentDetailVersions: AddonVersion[] = [];
+let detectedGameVersion = '3.3.5a';
+
+function getReleaseTypeName(type: number): string {
+  switch (type) {
+    case 1:
+      return getTranslation('store.releaseType.release');
+    case 2:
+      return getTranslation('store.releaseType.beta');
+    case 3:
+      return getTranslation('store.releaseType.alpha');
+    default:
+      return getTranslation('store.releaseType.unknown');
+  }
+}
+
+function setupStoreEvents() {
+  const getAddonsBtn = document.getElementById('getAddonsBtn');
+  const storeModal = document.getElementById('storeModal');
+  const storeCancelBtn = document.getElementById('storeCancelBtn');
+  const storeReviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement | null;
+  const storeSearchInput = document.getElementById('storeSearchInput') as HTMLInputElement | null;
+  const storeSearchClearBtn = document.getElementById(
+    'storeSearchClearBtn'
+  ) as HTMLButtonElement | null;
+  const storeSidebarTabs = document.querySelectorAll('.store-sidebar-tab');
+  let debounceTimer: any = null;
+
+  // Modal Open/Close
+  getAddonsBtn?.addEventListener('click', async () => {
+    storeModal?.classList.remove('hidden');
+    selectedAddons.clear();
+    updateFooterState();
+
+    // Synchronously reset active tab and clear inputs/timers to avoid state leaks
+    currentActiveSite = 'curseforge';
+    if (storeSearchInput) {
+      storeSearchInput.value = '';
+      storeSearchClearBtn?.classList.add('hidden');
+    }
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    try {
+      detectedGameVersion = await invoke<string>('detect_game_version', { basePath: gamePath.value });
+    } catch (err) {
+      console.error('Failed to detect game version:', err);
+      detectedGameVersion = '3.3.5a';
+    }
+    renderGithubTagFilters();
+    switchSiteTab('curseforge');
+  });
+
+  const closeStore = () => {
+    storeModal?.classList.add('hidden');
+  };
+  storeCancelBtn?.addEventListener('click', closeStore);
+
+  storeModal?.addEventListener('click', (e) => {
+    if (e.target === storeModal) {
+      closeStore();
+    }
+  });
+
+  // Search input clear button
+  storeSearchInput?.addEventListener('input', () => {
+    if (storeSearchInput.value.trim().length > 0) {
+      storeSearchClearBtn?.classList.remove('hidden');
+    } else {
+      storeSearchClearBtn?.classList.add('hidden');
+    }
+  });
+
+  storeSearchClearBtn?.addEventListener('click', () => {
+    if (storeSearchInput) {
+      storeSearchInput.value = '';
+      storeSearchClearBtn?.classList.add('hidden');
+      triggerSearch();
+    }
+  });
+
+  // Search input debounce
+  storeSearchInput?.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      triggerSearch();
+    }, 400);
+  });
+
+  // Site selector tabs
+  storeSidebarTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const site = tab.getAttribute('data-site') as 'curseforge' | 'mock' | 'github';
+      if (site) {
+        switchSiteTab(site);
+      }
+    });
+  });
+
+  // GitHub tag pills click listeners are bound dynamically inside renderGithubTagFilters()
+
+  // CurseForge category dropdown selector listener
+  const cfSelectElement = document.getElementById('curseforgeCategorySelect');
+  cfSelectElement?.addEventListener('change', () => {
+    triggerSearch();
+  });
+
+  // Review Modal Setup
+  const confirmModal = document.getElementById('storeDownloadModal');
+  const confirmCancel = document.getElementById('store-modal-cancel') as HTMLButtonElement | null;
+  const confirmConfirm = document.getElementById('store-modal-confirm') as HTMLButtonElement | null;
+
+  storeReviewBtn?.addEventListener('click', () => {
+    const tableBody = document.getElementById('store-modal-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    selectedAddons.forEach((item, key) => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-800 hover:bg-slate-900/40 transition-colors';
+      tr.setAttribute('data-key', key);
+      const provider = key.startsWith('gh-')
+        ? 'GitHub'
+        : key.startsWith('mock-')
+          ? 'Mock'
+          : 'CurseForge';
+      tr.innerHTML = `
+        <td class="p-2 text-center">
+          <input type="checkbox" class="confirm-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800" data-key="${key}" checked />
+        </td>
+        <td class="p-2 font-semibold text-slate-200">${escapeHtml(item.addon.title)}</td>
+        <td class="p-2 text-slate-400 font-mono text-[10px] break-all">${escapeHtml(item.selectedVersion.fileName)}</td>
+        <td class="p-2"><span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 text-slate-400">${provider}</span></td>
+        <td class="p-2"><span class="store-status-cell font-semibold" data-key="${key}">${escapeHtml(getReleaseTypeName(item.selectedVersion.releaseType))}</span></td>
+      `;
+
+      const checkbox = tr.querySelector('.confirm-addon-checkbox') as HTMLInputElement;
+      checkbox.addEventListener('change', () => {
+        updateConfirmButtonState();
+      });
+
+      tableBody.appendChild(tr);
+    });
+
+    confirmModal?.classList.remove('hidden');
+    updateConfirmButtonState();
+  });
+
+  const closeConfirmModal = () => {
+    confirmModal?.classList.add('hidden');
+  };
+  confirmCancel?.addEventListener('click', closeConfirmModal);
+
+  confirmModal?.addEventListener('click', (e) => {
+    if (e.target === confirmModal) {
+      closeConfirmModal();
+    }
+  });
+
+  // Sequential Downloading
+  confirmConfirm?.addEventListener('click', async () => {
+    const checkboxes = document.querySelectorAll(
+      '.confirm-addon-checkbox'
+    ) as NodeListOf<HTMLInputElement>;
+    const itemsToDownload: { key: string; addon: CatalogAddon; version: AddonVersion }[] = [];
+
+    checkboxes.forEach((cb) => {
+      if (cb.checked) {
+        const key = cb.getAttribute('data-key');
+        if (key) {
+          const item = selectedAddons.get(key);
+          if (item) {
+            itemsToDownload.push({ key, addon: item.addon, version: item.selectedVersion });
+          }
+        }
+      }
+    });
+
+    if (itemsToDownload.length === 0) return;
+
+    // Disable modal controls
+    confirmConfirm.disabled = true;
+    if (confirmCancel) confirmCancel.disabled = true;
+
+    setLoadingState('Downloading addons...', 10, statusFooter, activityProgress);
+
+    let successCount = 0;
+    for (let i = 0; i < itemsToDownload.length; i++) {
+      const { key, addon, version } = itemsToDownload[i];
+      const row = document.querySelector(`tr[data-key="${key}"]`);
+      const statusCell = row?.querySelector('.store-status-cell');
+
+      if (statusCell) {
+        statusCell.innerHTML = `
+          <span class="flex items-center gap-1.5 animate-pulse text-sky-400">
+            <svg class="animate-spin h-3 w-3 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Downloading...
+          </span>
+        `;
+      }
+      statusFooter.textContent = getTranslation('status.downloadingAddon', { name: addon.title });
+
+      try {
+        if (statusCell) {
+          statusCell.innerHTML = `
+            <span class="flex items-center gap-1.5 animate-pulse text-yellow-400">
+              <svg class="animate-spin h-3 w-3 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Installing...
+            </span>
+          `;
+        }
+        statusFooter.textContent = getTranslation('status.installingAddon', { name: addon.title });
+
+        await invoke<string>('download_and_extract_addon', {
+          basePath: gamePath.value,
+          url: version.downloadUrl,
+          sha1: version.sha1 || null,
+        });
+
+        if (statusCell) {
+          statusCell.innerHTML = `<span class="text-emerald-400 font-bold">✓ Installed</span>`;
+        }
+        successCount++;
+      } catch (err) {
+        console.error(err);
+        if (statusCell) {
+          statusCell.innerHTML = `<span class="text-red-400 font-bold" title="${err}">❌ Failed</span>`;
+        }
+      }
+    }
+
+    statusFooter.textContent = `Completed downloading. Installed ${successCount} of ${itemsToDownload.length} successfully.`;
+    showToast(`Installed ${successCount} addons!`);
+
+    confirmConfirm.disabled = false;
+    if (confirmCancel) confirmCancel.disabled = false;
+
+    setTimeout(() => {
+      closeConfirmModal();
+      closeStore();
+      clearLoadingState(statusFooter, activityProgress);
+      loadAddonsAndPatches();
+    }, 1500);
+  });
+}
+
+function triggerSearch() {
+  const storeSearchInput = document.getElementById('storeSearchInput') as HTMLInputElement | null;
+  const query = storeSearchInput?.value.trim() || '';
+  if (currentActiveSite === 'github') {
+    searchGithub(query);
+  } else {
+    searchCurseForge(query);
+  }
+}
+
+function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
+  currentActiveSite = site;
+  const storeSearchInput = document.getElementById('storeSearchInput') as HTMLInputElement | null;
+  const storeSearchClearBtn = document.getElementById(
+    'storeSearchClearBtn'
+  ) as HTMLButtonElement | null;
+
+  if (storeSearchInput) {
+    storeSearchInput.value = '';
+    storeSearchClearBtn?.classList.add('hidden');
+  }
+
+  // Toggle github filters visibility
+  const githubFilters = document.getElementById('githubTagFilters');
+  if (githubFilters) {
+    if (site === 'github') {
+      githubFilters.classList.remove('hidden');
+    } else {
+      githubFilters.classList.add('hidden');
+    }
+  }
+
+  // Toggle github warning banner visibility
+  const githubWarning = document.getElementById('githubWarningBanner');
+  if (githubWarning) {
+    if (site === 'github') {
+      githubWarning.classList.remove('hidden');
+    } else {
+      githubWarning.classList.add('hidden');
+    }
+  }
+
+  // Toggle curseforge category filters visibility
+  const cfFilters = document.getElementById('curseforgeCategoryFilters');
+  const cfSelect = document.getElementById('curseforgeCategorySelect') as HTMLSelectElement | null;
+  if (cfFilters) {
+    if (site === 'curseforge') {
+      cfFilters.classList.remove('hidden');
+    } else {
+      cfFilters.classList.add('hidden');
+    }
+  }
+  if (cfSelect) {
+    cfSelect.value = '';
+  }
+
+  // Update tabs visual active state
+  const tabs = document.querySelectorAll('.store-sidebar-tab');
+  tabs.forEach((t) => {
+    if (t.getAttribute('data-site') === site) {
+      t.classList.add('active', 'border-sky-500');
+      t.classList.remove('border-transparent');
+    } else {
+      t.classList.remove('active', 'border-sky-500');
+      t.classList.add('border-transparent');
+    }
+  });
+
+  // Clear details pane
+  clearDetailsPane();
+
+  // Trigger initial list render
+  if (site === 'github') {
+    searchGithub('');
+  } else {
+    searchCurseForge('');
+  }
+}
+
+function clearDetailsPane() {
+  selectedDetailAddon = null;
+  selectedDetailAddonKey = '';
+  currentDetailVersions = [];
+  const detailsContent = document.getElementById('storeDetailsContent');
+  if (detailsContent) {
+    detailsContent.innerHTML = `
+      <div class="flex-1 flex flex-col items-center justify-center text-slate-500 text-xs text-center" data-i18n="store.selectAddonHint">
+        ${getTranslation('store.selectAddonHint')}
+      </div>
+    `;
+  }
+}
+
+function renderStoreCatalog(addons: CatalogAddon[], _site: 'curseforge' | 'mock' | 'github') {
+  const listContainer = document.getElementById('storeListContainer');
+  const listEmpty = document.getElementById('storeListEmpty');
+  if (!listContainer) return;
+
+  listContainer.innerHTML = '';
+
+  if (addons.length === 0) {
+    listEmpty?.classList.remove('hidden');
+    return;
+  }
+  listEmpty?.classList.add('hidden');
+
+  addons.forEach((addon, index) => {
+    const key =
+      currentActiveSite === 'github'
+        ? `gh-${addon.modId}`
+        : addon.modId
+          ? `cf-${addon.modId}`
+          : `mock-${index}-${addon.name.replace(/\s+/g, '')}`;
+    const isChecked = selectedAddons.has(key);
+    const isSelectedDetails =
+      selectedDetailAddon &&
+      selectedDetailAddon.modId === addon.modId &&
+      selectedDetailAddon.name === addon.name;
+
+    const card = document.createElement('div');
+    card.className = `store-addon-card flex items-start py-1.5 px-2.5 rounded-lg border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition-all duration-200 cursor-pointer ${isChecked ? 'selected border-sky-600/30' : ''} ${isSelectedDetails ? 'border-sky-500 bg-slate-900/60' : ''}`;
+    card.setAttribute('data-key', key);
+
+    const placeholderSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><rect width='32' height='32' fill='%231e293b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='9' font-family='sans-serif' font-weight='bold'>${addon.title.substring(0, 2).toUpperCase()}</text></svg>`;
+
+    card.innerHTML = `
+      <div class="flex items-center justify-center p-1 flex-shrink-0 mr-2 mt-0.5" onclick="event.stopPropagation();">
+        <input type="checkbox" class="store-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-key="${key}" ${isChecked ? 'checked' : ''} />
+      </div>
+      <img src="${addon.logoUrl || placeholderSvg}" class="w-8 h-8 rounded border border-slate-800 mr-2.5 flex-shrink-0 object-cover" onerror="this.src='${placeholderSvg}'" />
+      <div class="flex-1 min-w-0 pr-2">
+        <h4 class="text-xs font-bold text-slate-200 truncate">${escapeHtml(addon.title)}</h4>
+        <p class="text-[11px] text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(addon.description)}</p>
+      </div>
+    `;
+
+    // Handle check box click
+    const checkbox = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+    checkbox.addEventListener('change', async () => {
+      if (checkbox.checked) {
+        await selectAddonForDownload(key, addon);
+        if (selectedDetailAddon && selectedDetailAddonKey === key) {
+          updateDetailsSelectionButton();
+        }
+      } else {
+        selectedAddons.delete(key);
+        updateFooterState();
+        card.classList.remove('selected', 'border-sky-600/30');
+        if (selectedDetailAddon && selectedDetailAddonKey === key) {
+          updateDetailsSelectionButton();
+        }
+      }
+    });
+
+    // Handle card select click
+    card.addEventListener('click', () => {
+      document
+        .querySelectorAll('.store-addon-card')
+        .forEach((c) => c.classList.remove('border-sky-500', 'bg-slate-900/60'));
+      card.classList.add('border-sky-500', 'bg-slate-900/60');
+      loadAddonDetails(addon, key);
+    });
+
+    listContainer.appendChild(card);
+  });
+}
+
+async function selectAddonForDownload(
+  key: string,
+  addon: CatalogAddon,
+  specificVersion?: AddonVersion
+) {
+  if (specificVersion) {
+    selectedAddons.set(key, { addon, selectedVersion: specificVersion });
+    updateFooterState();
+
+    const card = document.querySelector(`.store-addon-card[data-key="${key}"]`);
+    if (card) {
+      card.classList.add('selected', 'border-sky-600/30');
+      const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+      if (cb) cb.checked = true;
+    }
+    return;
+  }
+
+  try {
+    let compatible: AddonVersion[] = [];
+    if (currentActiveSite === 'github') {
+      compatible = await fetchGithubReleases(addon.name);
+    } else {
+      const isMock = currentActiveSite === 'mock';
+      const response = await invoke<any>('get_curseforge_mod_files', {
+        modId: addon.modId,
+        isMock,
+      });
+      const files = response.data || [];
+      compatible = files
+        .filter((file: any) => {
+          const hasDlUrl = !!(file.downloadUrl || (file.id && file.fileName));
+          if (!file.gameVersions || !hasDlUrl) return false;
+          return file.gameVersions.some((v: string) => {
+            if (detectedGameVersion === '1.12.1') {
+              return v === '1.12' || v === '1.12.1' || v === '1.12.2';
+            } else {
+              return v === '3.3.5' || v === '3.3.5a' || v.startsWith('3.4.');
+            }
+          });
+        })
+        .map((file: any) => {
+          const dlUrl =
+            file.downloadUrl ||
+            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`;
+          return {
+            id: file.id,
+            displayName: file.displayName || file.fileName,
+            fileName: file.fileName,
+            releaseType: file.releaseType || 1,
+            downloadUrl: dlUrl,
+            gameVersions: file.gameVersions,
+            sha1: file.hashes?.find((h: any) => h.algo === 1)?.value || null,
+          };
+        });
+    }
+
+    if (compatible.length > 0) {
+      selectedAddons.set(key, { addon, selectedVersion: compatible[0] });
+      updateFooterState();
+
+      const card = document.querySelector(`.store-addon-card[data-key="${key}"]`);
+      if (card) {
+        card.classList.add('selected', 'border-sky-600/30');
+        const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+        if (cb) cb.checked = true;
+      }
+    } else {
+      showToast(getTranslation('store.noCompatibleVersionToast', { title: addon.title }));
+      const card = document.querySelector(`.store-addon-card[data-key="${key}"]`);
+      if (card) {
+        const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+        if (cb) cb.checked = false;
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    showToast(`Error fetching addon files: ${err}`);
+    const card = document.querySelector(`.store-addon-card[data-key="${key}"]`);
+    if (card) {
+      const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+      if (cb) cb.checked = false;
+    }
+  }
+}
+
+async function loadAddonDetails(addon: CatalogAddon, key: string) {
+  selectedDetailAddon = addon;
+  selectedDetailAddonKey = key;
+  currentDetailVersions = [];
+
+  const detailsContent = document.getElementById('storeDetailsContent');
+  if (!detailsContent) return;
+
+  detailsContent.innerHTML = `
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 rounded bg-slate-900 border border-slate-800 animate-pulse flex-shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <div class="h-4 bg-slate-900 rounded w-3/4 animate-pulse"></div>
+        <div class="h-3 bg-slate-900 rounded w-1/2 mt-2 animate-pulse"></div>
+      </div>
+    </div>
+    <div class="h-8 bg-slate-900 rounded mb-4 animate-pulse"></div>
+    <div class="space-y-2 mt-4">
+      <div class="h-3 bg-slate-900 rounded w-full animate-pulse"></div>
+      <div class="h-3 bg-slate-900 rounded w-5/6 animate-pulse"></div>
+      <div class="h-3 bg-slate-900 rounded w-4/5 animate-pulse"></div>
+    </div>
+  `;
+
+  let versionsList: AddonVersion[] = [];
+  let descriptionHtml = addon.description || 'No description available.';
+
+  try {
+    if (currentActiveSite === 'github') {
+      const parts = addon.name.split('/');
+      const owner = parts[0];
+      const repo = parts[1] || addon.title;
+      const [files, descHtml] = await Promise.all([
+        fetchGithubReleases(addon.name),
+        fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+          headers: { Accept: 'application/vnd.github.html' },
+        })
+          .then((res) => (res.ok ? res.text() : 'No description available.'))
+          .catch(() => 'No description available.'),
+      ]);
+      versionsList = files;
+      descriptionHtml = descHtml;
+    } else {
+      const isMock = currentActiveSite === 'mock';
+      const [filesRes, descRes] = await Promise.all([
+        invoke<any>('get_curseforge_mod_files', { modId: addon.modId, isMock }),
+        invoke<string>('get_curseforge_mod_description', { modId: addon.modId, isMock }),
+      ]);
+
+      descriptionHtml = descRes;
+      const files = filesRes.data || [];
+      versionsList = files
+        .filter((file: any) => {
+          const hasDlUrl = !!(file.downloadUrl || (file.id && file.fileName));
+          if (!file.gameVersions || !hasDlUrl) return false;
+          return file.gameVersions.some((v: string) => {
+            if (detectedGameVersion === '1.12.1') {
+              return v === '1.12' || v === '1.12.1' || v === '1.12.2';
+            } else {
+              return v === '3.3.5' || v === '3.3.5a' || v.startsWith('3.4.');
+            }
+          });
+        })
+        .map((file: any) => {
+          const dlUrl =
+            file.downloadUrl ||
+            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`;
+          return {
+            id: file.id,
+            displayName: file.displayName || file.fileName,
+            fileName: file.fileName,
+            releaseType: file.releaseType || 1,
+            downloadUrl: dlUrl,
+            gameVersions: file.gameVersions,
+            sha1: file.hashes?.find((h: any) => h.algo === 1)?.value || null,
+          };
+        });
+    }
+
+    currentDetailVersions = versionsList;
+
+    const isChecked = selectedAddons.has(key);
+    const selectedItem = selectedAddons.get(key);
+    const currentlySelectedUrl = selectedItem?.selectedVersion.downloadUrl || '';
+
+    const placeholderSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><rect width='40' height='40' fill='%231e293b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='10' font-family='sans-serif' font-weight='bold'>${addon.title.substring(0, 2).toUpperCase()}</text></svg>`;
+
+    let linksHtml = '';
+    if (addon.websiteUrl) {
+      linksHtml += `<a href="${addon.websiteUrl}" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">${getTranslation('store.website')}</a>`;
+    }
+    if (addon.issuesUrl) {
+      if (linksHtml) linksHtml += ' • ';
+      linksHtml += `<a href="${addon.issuesUrl}" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">${getTranslation('store.issueTracker')}</a>`;
+    }
+    if (addon.sourceUrl) {
+      if (linksHtml) linksHtml += ' • ';
+      linksHtml += `<a href="${addon.sourceUrl}" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">GitHub</a>`;
+    }
+
+    detailsContent.innerHTML = `
+      <!-- Header Row (Image on left, details on right) -->
+      <div class="flex items-start gap-3 mb-4 pb-3 border-b border-slate-800 flex-shrink-0 w-full">
+        <img src="${addon.logoUrl || placeholderSvg}" class="w-12 h-12 rounded border border-slate-800 object-cover flex-shrink-0 mt-0.5" onerror="this.src='${placeholderSvg}'" />
+        <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+          <h3 class="text-sm font-bold text-slate-100 truncate">${escapeHtml(addon.title)}</h3>
+          <div class="flex items-center gap-2 w-full">
+            <select id="detailVersionSelect" class="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-[11px] text-slate-200 outline-none focus:border-slate-700 cursor-pointer">
+              ${versionsList.map((v) => `<option value="${v.downloadUrl}" ${v.downloadUrl === currentlySelectedUrl ? 'selected' : ''}>${escapeHtml(v.displayName)} (${escapeHtml(getReleaseTypeName(v.releaseType))})</option>`).join('')}
+              ${versionsList.length === 0 ? `<option value="">${getTranslation('store.noVersions')}</option>` : ''}
+            </select>
+            <button id="detailSelectBtn" class="flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded transition-all duration-150 cursor-pointer outline-none ${isChecked ? 'bg-sky-600/20 border border-sky-500 text-sky-400 hover:bg-sky-600/30' : 'bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700'}">
+              ${isChecked ? getTranslation('store.deselectForDownload') : getTranslation('store.selectForDownload')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- By (Author) -->
+      <div class="text-xs text-slate-400 mb-1.5 flex-shrink-0">
+        ${getTranslation('store.byAuthor')} <span class="text-slate-300 font-semibold">${escapeHtml(addon.authors || getTranslation('store.none'))}</span>
+      </div>
+
+      <!-- Donate information: (Link to any information for donations) -->
+      <div class="text-xs text-slate-400 mb-1.5 flex-shrink-0">
+        ${getTranslation('store.donateInfo')} ${addon.donationUrl ? `<a href="${escapeHtml(addon.donationUrl)}" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">${getTranslation('store.supportCreator')}</a>` : `<span class="text-slate-500">${getTranslation('store.none')}</span>`}
+      </div>
+
+      <!-- External links: (Issue tracker, github) -->
+      <div class="text-xs text-slate-400 mb-3 flex-shrink-0 flex items-center gap-1.5">
+        <span>${getTranslation('store.externalLinks')}</span>
+        <div class="flex gap-2">
+          ${linksHtml || `<span class="text-slate-500">${getTranslation('store.none')}</span>`}
+        </div>
+      </div>
+
+      <!-- Mod Description -->
+      <div class="flex-1 min-h-0 overflow-y-auto details-description pr-1">
+        ${sanitizeHtml(descriptionHtml)}
+      </div>
+    `;
+
+    const versionSelect = document.getElementById(
+      'detailVersionSelect'
+    ) as HTMLSelectElement | null;
+    versionSelect?.addEventListener('change', () => {
+      const selectVal = versionSelect.value;
+      if (!selectVal) return;
+      const targetVersion = currentDetailVersions.find((v) => v.downloadUrl === selectVal);
+
+      if (selectedAddons.has(key) && targetVersion) {
+        selectedAddons.set(key, { addon, selectedVersion: targetVersion });
+      }
+    });
+
+    const selectBtn = document.getElementById('detailSelectBtn') as HTMLButtonElement | null;
+    selectBtn?.addEventListener('click', async () => {
+      const activeChecked = selectedAddons.has(key);
+      if (activeChecked) {
+        selectedAddons.delete(key);
+        updateFooterState();
+        updateDetailsSelectionButton();
+
+        const card = document.querySelector(`.store-addon-card[data-key="${key}"]`);
+        if (card) {
+          card.classList.remove('selected', 'border-sky-600/30');
+          const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+          if (cb) cb.checked = false;
+        }
+      } else {
+        const selectVal = versionSelect?.value || '';
+        const targetVersion = currentDetailVersions.find((v) => v.downloadUrl === selectVal);
+        if (targetVersion) {
+          await selectAddonForDownload(key, addon, targetVersion);
+          updateDetailsSelectionButton();
+        } else {
+          await selectAddonForDownload(key, addon);
+          updateDetailsSelectionButton();
+          const updatedItem = selectedAddons.get(key);
+          if (updatedItem && versionSelect) {
+            versionSelect.value = updatedItem.selectedVersion.downloadUrl;
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('loadAddonDetails error:', err);
+    detailsContent.innerHTML = `<div class="text-center text-red-400 py-12 text-xs">Failed to load details: ${err}</div>`;
+  }
+}
+
+function updateDetailsSelectionButton() {
+  const selectBtn = document.getElementById('detailSelectBtn') as HTMLButtonElement | null;
+  if (!selectBtn || !selectedDetailAddon || !selectedDetailAddonKey) return;
+
+  const isChecked = selectedAddons.has(selectedDetailAddonKey);
+
+  if (isChecked) {
+    selectBtn.textContent = getTranslation('store.deselectForDownload');
+    selectBtn.className =
+      'flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded transition-all duration-150 cursor-pointer outline-none bg-sky-600/20 border border-sky-500 text-sky-400 hover:bg-sky-600/30';
+  } else {
+    selectBtn.textContent = getTranslation('store.selectForDownload');
+    selectBtn.className =
+      'flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded transition-all duration-150 cursor-pointer outline-none bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700';
+  }
+}
+
+function updateFooterState() {
+  const count = selectedAddons.size;
+  const countSpan = document.getElementById('storeSelectedCount');
+  if (countSpan) countSpan.textContent = count.toString();
+
+  const reviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement | null;
+  if (reviewBtn) {
+    reviewBtn.disabled = count === 0;
+  }
+}
+
+function updateConfirmButtonState() {
+  const confirmConfirm = document.getElementById('store-modal-confirm') as HTMLButtonElement | null;
+  const checkboxes = document.querySelectorAll(
+    '.confirm-addon-checkbox'
+  ) as NodeListOf<HTMLInputElement>;
+  let checkedCount = 0;
+  checkboxes.forEach((cb) => {
+    if (cb.checked) checkedCount++;
+  });
+  if (confirmConfirm) {
+    confirmConfirm.disabled = checkedCount === 0;
+  }
+}
+
+async function searchCurseForge(query: string) {
+  const storeList = document.getElementById('storeListContainer');
+  const storeEmpty = document.getElementById('storeListEmpty');
+  if (!storeList) return;
+
+  storeList.innerHTML = `
+    <div class="col-span-full flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
+      <svg class="animate-spin h-6 w-6 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="text-xs font-medium animate-pulse">${getTranslation('tweaks.loading')}</span>
+    </div>
+  `;
+  if (storeEmpty) storeEmpty.classList.add('hidden');
+
+  const categorySelect = document.getElementById(
+    'curseforgeCategorySelect'
+  ) as HTMLSelectElement | null;
+  const categoryId = categorySelect && categorySelect.value ? parseInt(categorySelect.value) : null;
+
+  try {
+    const isMock = currentActiveSite === 'mock';
+    const response = await invoke<any>('search_curseforge_addons', {
+      query: encodeURIComponent(query),
+      categoryId,
+      gameVersion: detectedGameVersion,
+      isMock,
+    });
+    const mods = response.data || [];
+
+    if (mods.length === 0) {
+      storeList.innerHTML = '';
+      if (storeEmpty) storeEmpty.classList.remove('hidden');
+      return;
+    }
+
+    const catalogList: CatalogAddon[] = mods.map((mod: any) => ({
+      name: mod.name,
+      title: mod.name,
+      description: mod.summary || 'No description available',
+      modId: mod.id,
+      logoUrl: mod.logo?.thumbnailUrl || '',
+      authors: mod.authors ? mod.authors.map((a: any) => a.name).join(', ') : 'Unknown',
+      websiteUrl: mod.links?.websiteUrl || '',
+      issuesUrl: mod.links?.issuesUrl || '',
+      sourceUrl: mod.links?.sourceUrl || '',
+      donationUrl: mod.links?.donationUrl || '',
+    }));
+
+    renderStoreCatalog(catalogList, currentActiveSite);
+  } catch (err) {
+    console.error(err);
+    const errMsg = String(err);
+    let friendlyMsg =
+      'Failed to query CurseForge. Please check your internet connection or try again later.';
+    if (errMsg.includes('403') || errMsg.toLowerCase().includes('forbidden')) {
+      friendlyMsg =
+        'Access denied by CurseForge. Please verify that a valid CurseForge API Key is configured in your launcher settings, or switch to the Mock tab to test local files.';
+    }
+    storeList.innerHTML = `<div class="col-span-full text-center text-red-400 py-8 px-4 text-xs font-semibold leading-relaxed border border-red-950/20 bg-red-950/5 rounded">${friendlyMsg}</div>`;
+  }
+}
+
+async function fetchGithubReleases(repoFullName: string): Promise<AddonVersion[]> {
+  const parts = repoFullName.split('/');
+  const owner = parts[0];
+  const repo = parts[1] || repoFullName;
+  const url = `https://api.github.com/repos/${owner}/${repo}/releases`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      let defaultBranch = 'master';
+      if (repoRes.ok) {
+        const repoJson = await repoRes.json();
+        defaultBranch = repoJson.default_branch || 'master';
+      }
+      return [
+        {
+          id: 0,
+          displayName: `${repo} (Source Code: ${defaultBranch})`,
+          fileName: `${repo}-${defaultBranch}.zip`,
+          releaseType: 1,
+          downloadUrl: `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`,
+          gameVersions: [detectedGameVersion],
+        },
+      ];
+    }
+
+    const json = await res.json();
+    const versions: AddonVersion[] = [];
+
+    json.forEach((rel: any) => {
+      const releaseName = rel.name || rel.tag_name;
+      let hasZip = false;
+      if (rel.assets && rel.assets.length > 0) {
+        rel.assets.forEach((asset: any) => {
+          if (
+            asset.name.toLowerCase().endsWith('.zip') ||
+            asset.name.toLowerCase().endsWith('.7z')
+          ) {
+            versions.push({
+              id: asset.id,
+              displayName: `${releaseName} - ${asset.name}`,
+              fileName: asset.name,
+              releaseType: rel.prerelease ? 2 : 1,
+              downloadUrl: asset.browser_download_url,
+              gameVersions: [detectedGameVersion],
+            });
+            hasZip = true;
+          }
+        });
+      }
+
+      if (!hasZip) {
+        versions.push({
+          id: rel.id,
+          displayName: `${releaseName} (Source Code)`,
+          fileName: `${rel.tag_name}.zip`,
+          releaseType: rel.prerelease ? 2 : 1,
+          downloadUrl: `https://github.com/${owner}/${repo}/archive/refs/tags/${rel.tag_name}.zip`,
+          gameVersions: [detectedGameVersion],
+        });
+      }
+    });
+
+    if (versions.length === 0) {
+      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      let defaultBranch = 'master';
+      if (repoRes.ok) {
+        const repoJson = await repoRes.json();
+        defaultBranch = repoJson.default_branch || 'master';
+      }
+      versions.push({
+        id: 0,
+        displayName: `${repo} (Source Code: ${defaultBranch})`,
+        fileName: `${repo}-${defaultBranch}.zip`,
+        releaseType: 1,
+        downloadUrl: `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`,
+        gameVersions: [detectedGameVersion],
+      });
+    }
+
+    return versions;
+  } catch {
+    return [
+      {
+        id: 0,
+        displayName: `${repo} (Source Code: master)`,
+        fileName: `${repo}-master.zip`,
+        releaseType: 1,
+        downloadUrl: `https://github.com/${owner}/${repo}/archive/refs/heads/master.zip`,
+        gameVersions: [detectedGameVersion],
+      },
+    ];
+  }
+}
+
+async function searchGithub(query: string) {
+  const storeList = document.getElementById('storeListContainer');
+  const storeEmpty = document.getElementById('storeListEmpty');
+  if (!storeList) return;
+
+  storeList.innerHTML = `
+    <div class="col-span-full flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
+      <svg class="animate-spin h-6 w-6 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="text-xs font-medium animate-pulse">${getTranslation('tweaks.loading')}</span>
+    </div>
+  `;
+  if (storeEmpty) storeEmpty.classList.add('hidden');
+
+  try {
+    const activePills = document.querySelectorAll('.github-tag-pill.active');
+    let tags = Array.from(activePills)
+      .map((p) => p.getAttribute('data-tag'))
+      .filter(Boolean);
+
+    if (tags.length === 0) {
+      tags = [detectedGameVersion === '1.12.1' ? 'vanilla-wow' : 'wotlk'];
+    }
+
+    const topicQuery = tags.map((t) => `topic:${t}`).join(' OR ');
+    const q = query.trim() ? `${query.trim()} (${topicQuery})` : topicQuery;
+
+    const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`GitHub API returned status: ${res.status} ${res.statusText}`);
+    }
+    const json = await res.json();
+    const items = json.items || [];
+
+    if (items.length === 0) {
+      storeList.innerHTML = '';
+      if (storeEmpty) storeEmpty.classList.remove('hidden');
+      return;
+    }
+
+    const catalogList: CatalogAddon[] = items.map((mod: any) => ({
+      name: mod.full_name,
+      title: mod.name,
+      description: mod.description || 'No description available',
+      modId: mod.id,
+      logoUrl: mod.owner?.avatar_url || '',
+      authors: mod.owner?.login || 'Unknown',
+      websiteUrl: mod.html_url || '',
+      issuesUrl: mod.html_url ? `${mod.html_url}/issues` : '',
+      sourceUrl: mod.html_url || '',
+      donationUrl: '',
+    }));
+
+    renderStoreCatalog(catalogList, 'github');
+  } catch (err) {
+    console.error(err);
+    storeList.innerHTML = `<div class="col-span-full text-center text-red-400 py-8 px-4 text-xs font-semibold leading-relaxed border border-red-950/20 bg-red-950/5 rounded">Failed to query GitHub API: ${err}</div>`;
+  }
+}
+
+function renderGithubTagFilters() {
+  const container = document.getElementById('githubTagFilters');
+  if (!container) return;
+
+  const tags = detectedGameVersion === '1.12.1'
+    ? ['vanilla-wow', 'classic-wow', 'wow-classic', '1-12-1']
+    : ['wotlk', 'wow-classic', 'world-of-warcraft', 'warcraft'];
+
+  container.innerHTML = tags.map((tag, idx) => {
+    const isActive = idx === 0;
+    const activeClasses = 'bg-sky-600/20 border-sky-500 text-sky-400 hover:bg-sky-600/30 active';
+    const inactiveClasses = 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200';
+    return `<button class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none ${isActive ? activeClasses : inactiveClasses}" data-tag="${tag}">${tag}</button>`;
+  }).join('');
+
+  // Bind click listeners
+  const pills = container.querySelectorAll('.github-tag-pill');
+  pills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      if (pill.classList.contains('active')) {
+        pill.classList.remove('active', 'bg-sky-600/20', 'border-sky-500', 'text-sky-400', 'hover:bg-sky-600/30');
+        pill.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-slate-200');
+      } else {
+        pill.classList.add('active', 'bg-sky-600/20', 'border-sky-500', 'text-sky-400', 'hover:bg-sky-600/30');
+        pill.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-slate-200');
+      }
+      triggerSearch();
+    });
+  });
+}
+
+function setupMainSearchEvents() {
+  const addonsSearch = document.getElementById('addons-search') as HTMLInputElement | null;
+  const addonsClear = document.getElementById('addons-search-clear') as HTMLButtonElement | null;
+  const patchesSearch = document.getElementById('patches-search') as HTMLInputElement | null;
+  const patchesClear = document.getElementById('patches-search-clear') as HTMLButtonElement | null;
+
+  const toggleClear = (input: HTMLInputElement, clearBtn: HTMLButtonElement | null) => {
+    if (!clearBtn) return;
+    if (input.value.trim().length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  };
+
+  addonsSearch?.addEventListener('input', () => {
+    toggleClear(addonsSearch, addonsClear);
+    const query = addonsSearch.value.toLowerCase().trim();
+    const addonRows = document.querySelectorAll('#addons-list > div') as NodeListOf<HTMLDivElement>;
+    addonRows.forEach((row) => {
+      const addonName = row.getAttribute('data-addon')?.toLowerCase() || '';
+      const text = row.textContent?.toLowerCase() || '';
+      if (addonName.includes(query) || text.includes(query)) {
+        row.classList.remove('hidden');
+        row.style.display = '';
+      } else {
+        row.classList.add('hidden');
+        row.style.display = 'none';
+      }
+    });
+  });
+
+  addonsClear?.addEventListener('click', () => {
+    if (addonsSearch) {
+      addonsSearch.value = '';
+      addonsSearch.dispatchEvent(new Event('input'));
+      addonsSearch.focus();
+    }
+  });
+
+  patchesSearch?.addEventListener('input', () => {
+    toggleClear(patchesSearch, patchesClear);
+    const query = patchesSearch.value.toLowerCase().trim();
+    const patchRows = document.querySelectorAll(
+      '#patches-list > div'
+    ) as NodeListOf<HTMLDivElement>;
+    patchRows.forEach((row) => {
+      const patchName = row.getAttribute('data-patch')?.toLowerCase() || '';
+      const text = row.textContent?.toLowerCase() || '';
+      if (patchName.includes(query) || text.includes(query)) {
+        row.classList.remove('hidden');
+        row.style.display = '';
+      } else {
+        row.classList.add('hidden');
+        row.style.display = 'none';
+      }
+    });
+  });
+
+  patchesClear?.addEventListener('click', () => {
+    if (patchesSearch) {
+      patchesSearch.value = '';
+      patchesSearch.dispatchEvent(new Event('input'));
+      patchesSearch.focus();
+    }
+  });
+}
+
+function setupSearchHoverBehavior() {
+  const containers = document.querySelectorAll('.search-container');
+  containers.forEach((container) => {
+    const input = container.querySelector('.search-input') as HTMLInputElement | null;
+    if (!input) return;
+
+    let timer: any = null;
+
+    const showInput = () => {
+      clearTimeout(timer);
+      input.classList.add('active');
+    };
+
+    const hideInputWithDelay = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (input !== document.activeElement && input.value.trim().length === 0) {
+          input.classList.remove('active');
+        }
+      }, 3000); // 3 seconds delay
+    };
+
+    container.addEventListener('mouseenter', showInput);
+    container.addEventListener('mouseleave', hideInputWithDelay);
+
+    input.addEventListener('focus', () => {
+      clearTimeout(timer);
+    });
+
+    input.addEventListener('blur', () => {
+      if (!container.matches(':hover')) {
+        hideInputWithDelay();
+      }
+    });
+  });
+}
+
+// --- DEBUG CONSOLE LOGGER & SHORTCUT ---
+interface LogEntry {
+  type: 'error' | 'warn' | 'log';
+  message: string;
+  timestamp: string;
+}
+
+const debugLogs: LogEntry[] = [];
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleLog = console.log;
+
+function updateDebugConsoleUI() {
+  const container = document.getElementById('debugLogsContainer');
+  if (!container) return;
+  container.innerHTML = debugLogs
+    .map((log) => {
+      let classType = 'log-info';
+      if (log.type === 'error') {
+        classType = 'log-error';
+      } else if (log.type === 'warn') {
+        classType = 'log-warn';
+      }
+      return `<div class="${classType}">[${log.timestamp}] [${log.type.toUpperCase()}] ${escapeHtml(log.message)}</div>`;
+    })
+    .join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function addDebugLog(type: 'error' | 'warn' | 'log', ...args: any[]) {
+  const message = args
+    .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
+    .join(' ');
+  const timestamp = new Date().toLocaleTimeString();
+  debugLogs.push({ type, message, timestamp });
+
+  if (debugLogs.length > 500) {
+    debugLogs.shift();
+  }
+
+  updateDebugConsoleUI();
+}
+
+console.error = function (...args: any[]) {
+  addDebugLog('error', ...args);
+  originalConsoleError.apply(console, args);
+};
+
+console.warn = function (...args: any[]) {
+  addDebugLog('warn', ...args);
+  originalConsoleWarn.apply(console, args);
+};
+
+console.log = function (...args: any[]) {
+  addDebugLog('log', ...args);
+  originalConsoleLog.apply(console, args);
+};
+
+window.addEventListener('error', (e) => {
+  addDebugLog('error', `Uncaught Exception: ${e.message} at ${e.filename}:${e.lineno}:${e.colno}`);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  addDebugLog('error', `Unhandled Promise Rejection: ${e.reason}`);
+});
+
+function toggleDebugConsole() {
+  const modal = document.getElementById('debugConsoleModal');
+  if (!modal) return;
+  modal.classList.toggle('hidden');
+  if (!modal.classList.contains('hidden')) {
+    updateDebugConsoleUI();
+  }
+}
+
+// Listen for update available event
+listen('update-available', () => {
+  const updateAvailableBtn = document.getElementById('updateAvailableBtn');
+  if (updateAvailableBtn) {
+    updateAvailableBtn.classList.remove('hidden');
+  }
+});
+
+document.getElementById('updateAvailableBtn')?.addEventListener('click', async () => {
+  try {
+    if (statusFooter) statusFooter.textContent = 'Updating...';
+    await invoke('install_update');
+  } catch (err) {
+    if (statusFooter) statusFooter.textContent = `Update error: ${err}`;
+  }
+});
+
+// Setup Debug Console events when DOM is loaded
+function setupDebugConsoleEvents() {
+  const closeBtn = document.getElementById('debugCloseBtn');
+  const copyBtn = document.getElementById('debugCopyBtn');
+  const clearBtn = document.getElementById('debugClearBtn');
+  const modal = document.getElementById('debugConsoleModal');
+
+  closeBtn?.addEventListener('click', toggleDebugConsole);
+
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      toggleDebugConsole();
+    }
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    debugLogs.length = 0;
+    updateDebugConsoleUI();
+  });
+
+  copyBtn?.addEventListener('click', async () => {
+    const text = debugLogs
+      .map((log) => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`)
+      .join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Logs copied to clipboard!');
+    } catch (err) {
+      originalConsoleError('Failed to copy logs:', err);
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'j') {
+      e.preventDefault();
+      toggleDebugConsole();
+    }
+  });
+}
+
+// Execute setup
+setupDebugConsoleEvents();

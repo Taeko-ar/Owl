@@ -17,6 +17,13 @@
         </div>
         <div class="flex items-center gap-2">
           <button
+            id="updateAvailableBtn"
+            class="hidden text-[11px] h-6 flex items-center justify-center bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-400 font-semibold px-2 rounded transition-all duration-150 cursor-pointer outline-none mr-1 select-none animate-pulse"
+            data-i18n="buttons.updateAvailable"
+          >
+            Update available!
+          </button>
+          <button
             id="themeToggleBtn"
             class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800 flex items-center justify-center"
             title="Toggle Light/Dark Mode"
@@ -151,6 +158,13 @@
         </div>
         <div class="flex items-center gap-2">
           <button
+            id="getAddonsBtn"
+            class="text-xs bg-slate-800 border border-slate-700 hover:border-slate-500 px-3.5 py-1.5 rounded text-slate-100 hover:bg-slate-700 transition-all duration-150 cursor-pointer outline-none font-semibold flex items-center gap-1.5"
+            data-i18n="tabs.store"
+          >
+            Get Addons
+          </button>
+          <button
             id="importAddonBtn"
             class="text-xs bg-slate-800 border border-slate-700 hover:border-slate-500 px-3.5 py-1.5 rounded text-slate-100 hover:bg-slate-700 transition-all duration-150 cursor-pointer outline-none font-semibold flex items-center gap-1.5"
             data-i18n="buttons.importAddon"
@@ -183,6 +197,43 @@
           <div
             class="rounded-lg border border-slate-800 bg-slate-900 p-6 flex flex-col h-full min-h-0"
           >
+            <div class="flex justify-between items-center mb-4 flex-shrink-0">
+              <h3
+                class="text-sm font-bold uppercase tracking-wider text-slate-400"
+                data-i18n="addons.installed"
+              >
+                Installed Addons
+              </h3>
+              <div class="search-container relative flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                  class="search-icon w-5 h-5 text-slate-400 cursor-pointer hover:text-slate-200 transition-colors duration-200"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  id="addons-search"
+                  class="search-input bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 outline-none focus:border-slate-600 transition-all duration-300"
+                  placeholder="Search..."
+                  autocomplete="off"
+                />
+                <button
+                  id="addons-search-clear"
+                  class="search-clear-btn absolute hidden text-slate-400 hover:text-slate-200 text-xs cursor-pointer outline-none bg-transparent border-0"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
             <div id="addons-list" class="space-y-3 overflow-y-auto flex-1 min-h-0 pr-3"></div>
             <p id="addons-empty" class="text-center text-slate-400 py-8" data-i18n="addons.empty">
               No addons installed
@@ -194,6 +245,43 @@
           <div
             class="rounded-lg border border-slate-800 bg-slate-900 p-6 flex flex-col h-full min-h-0"
           >
+            <div class="flex justify-between items-center mb-4 flex-shrink-0">
+              <h3
+                class="text-sm font-bold uppercase tracking-wider text-slate-400"
+                data-i18n="patches.installed"
+              >
+                Installed Patches
+              </h3>
+              <div class="search-container relative flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                  class="search-icon w-5 h-5 text-slate-400 cursor-pointer hover:text-slate-200 transition-colors duration-200"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  id="patches-search"
+                  class="search-input bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 outline-none focus:border-slate-600 transition-all duration-300"
+                  placeholder="Search..."
+                  autocomplete="off"
+                />
+                <button
+                  id="patches-search-clear"
+                  class="search-clear-btn absolute hidden text-slate-400 hover:text-slate-200 text-xs cursor-pointer outline-none bg-transparent border-0"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
             <div id="patches-list" class="space-y-2 overflow-y-auto flex-1 min-h-0 pr-3"></div>
             <p
               id="patches-empty"
@@ -300,6 +388,430 @@
               Apply
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Addon Store Modal -->
+    <div
+      id="storeModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+    >
+      <div
+        class="relative rounded-lg border border-slate-700 bg-slate-900 w-full max-w-5xl h-[85vh] flex flex-row shadow-2xl overflow-hidden"
+      >
+
+        <!-- Leftmost Site Selector Tabs (Collapsible Sidebar) -->
+        <div
+          class="store-sidebar w-14 flex flex-col bg-slate-900/30 py-4 border-r border-slate-700 flex-shrink-0 relative"
+        >
+          <!-- CurseForge Tab -->
+          <button
+            class="store-sidebar-tab active px-4 py-3 text-left text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-150 outline-none border-l-2 border-sky-500 cursor-pointer flex items-center gap-3.5 w-full"
+            data-site="curseforge"
+          >
+            <!-- Anvil SVG icon -->
+            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 10H6a4 4 0 0 1-4-4 1 1 0 0 1 1-1h4" />
+              <path d="M7 5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1 7 7 0 0 1-7 7H8a1 1 0 0 1-1-1z" />
+              <path d="M9 12v5" />
+              <path d="M15 12v5" />
+              <path d="M5 20a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3 1 1 0 0 1-1 1H6a1 1 0 0 1-1-1" />
+            </svg>
+            <span class="store-sidebar-tab-text select-none">CurseForge</span>
+          </button>
+
+          <!-- GitHub Tab -->
+          <button
+            class="store-sidebar-tab px-4 py-3 text-left text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-150 outline-none border-l-2 border-transparent cursor-pointer flex items-center justify-between gap-2 w-full"
+            data-site="github"
+          >
+            <span class="flex items-center gap-3.5 min-w-0">
+              <!-- GitHub SVG octocat icon -->
+              <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"
+                />
+              </svg>
+              <span class="store-sidebar-tab-text select-none">GitHub</span>
+            </span>
+            <!-- Warning indicator with popup details -->
+            <span
+              class="store-sidebar-warning relative group flex items-center justify-center pointer-events-auto"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2.5"
+                stroke="currentColor"
+                class="w-4 h-4 text-amber-500 hover:text-amber-400 transition-colors"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <!-- Styled Tooltip Container -->
+              <span
+                class="absolute left-8 top-1/2 -translate-y-1/2 w-64 p-3 bg-slate-950 text-slate-200 border border-slate-700 text-[11px] leading-relaxed rounded-md shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 normal-case font-normal border-l-4 border-l-amber-500 whitespace-normal"
+                data-i18n="store.githubWarning"
+              >
+                Warning: These may not be individual addons; they could be addon packs or
+                documentation. Please read the description of the addon carefully to understand what
+                you are downloading.
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <!-- Right Pane: Content Grid + Footer -->
+        <div class="flex-1 flex flex-col min-w-0 bg-slate-900/10">
+          <!-- Main Content split view -->
+          <div class="flex-1 flex min-h-0">
+            <!-- Left Pane: Addon List & Search -->
+            <div class="flex-1 flex flex-col border-r border-slate-700 min-w-0 p-5">
+              <!-- Top Row: Search and filters stacked vertically -->
+              <div class="flex flex-col gap-3 mb-4 flex-shrink-0">
+                <!-- Search Container -->
+                <div class="relative flex items-center h-9 w-full flex-shrink-0">
+                  <input
+                    type="text"
+                    id="storeSearchInput"
+                    class="w-full bg-slate-950 border border-slate-700 rounded pl-9 pr-8 py-2 text-xs text-slate-200 outline-none focus:border-slate-500 transition-all duration-200"
+                    placeholder="Search addons..."
+                    autocomplete="off"
+                    data-i18n-placeholder="store.searchPlaceholder"
+                  />
+                  <span class="absolute left-3 top-2.5 text-slate-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2"
+                      stroke="currentColor"
+                      class="w-4 h-4"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+                      />
+                    </svg>
+                  </span>
+                  <button
+                    id="storeSearchClearBtn"
+                    class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 hidden text-xs outline-none cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <!-- CurseForge Category Filters -->
+                <div
+                  id="curseforgeCategoryFilters"
+                  class="hidden w-full flex items-center gap-2 min-w-0"
+                >
+                  <label
+                    class="text-slate-400 text-xs font-semibold whitespace-nowrap"
+                    data-i18n="store.categoryLabel"
+                    >Category:</label
+                  >
+                  <select
+                    id="curseforgeCategorySelect"
+                    class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-slate-500 transition-all duration-200 cursor-pointer"
+                  >
+                    <option value="" data-i18n="store.categories.all">All Categories</option>
+                    <option value="1067" data-i18n="store.categories.achievements">Achievements</option>
+                    <option value="1018" data-i18n="store.categories.actionBars">Action Bars</option>
+                    <option value="1006" data-i18n="store.categories.artwork">Artwork</option>
+                    <option value="1002" data-i18n="store.categories.auctionEconomy">Auction & Economy</option>
+                    <option value="1003" data-i18n="store.categories.audioVideo">Audio & Video</option>
+                    <option value="1009" data-i18n="store.categories.bagsInventory">Bags & Inventory</option>
+                    <option value="1014" data-i18n="store.categories.bossEncounters">Boss Encounters</option>
+                    <option value="1005" data-i18n="store.categories.buffsDebuffs">Buffs & Debuffs</option>
+                    <option value="1001" data-i18n="store.categories.chatCommunication">Chat & Communication</option>
+
+                    <optgroup label="Class" data-i18n="store.categories.group.class">
+                      <option value="1020" data-i18n="store.categories.allClasses">All Classes</option>
+                      <option value="1036" data-i18n="store.categories.deathKnight">Death Knight</option>
+                      <option value="1502" data-i18n="store.categories.demonHunters">Demon Hunters</option>
+                      <option value="1023" data-i18n="store.categories.druid">Druid</option>
+                      <option value="6137" data-i18n="store.categories.evoker">Evoker</option>
+                      <option value="1024" data-i18n="store.categories.hunter">Hunter</option>
+                      <option value="1021" data-i18n="store.categories.mage">Mage</option>
+                      <option value="1242" data-i18n="store.categories.monk">Monk</option>
+                      <option value="1022" data-i18n="store.categories.paladin">Paladin</option>
+                      <option value="1026" data-i18n="store.categories.priest">Priest</option>
+                      <option value="1027" data-i18n="store.categories.rogue">Rogue</option>
+                      <option value="1025" data-i18n="store.categories.shaman">Shaman</option>
+                      <option value="1029" data-i18n="store.categories.warlock">Warlock</option>
+                      <option value="1028" data-i18n="store.categories.warrior">Warrior</option>
+                    </optgroup>
+
+                    <optgroup label="Combat" data-i18n="store.categories.group.combat">
+                      <option value="1019" data-i18n="store.categories.allCombat">All Combat</option>
+                      <option value="1034" data-i18n="store.categories.caster">Caster</option>
+                      <option value="1035" data-i18n="store.categories.damageDealer">Damage Dealer</option>
+                      <option value="1032" data-i18n="store.categories.healer">Healer</option>
+                      <option value="1033" data-i18n="store.categories.tank">Tank</option>
+                    </optgroup>
+
+                    <optgroup label="Companions" data-i18n="store.categories.group.companions">
+                      <option value="1085" data-i18n="store.categories.allCompanions">All Companions</option>
+                      <option value="1243" data-i18n="store.categories.battlePets">Battle Pets</option>
+                    </optgroup>
+
+                    <option value="1007" data-i18n="store.categories.dataExport">Data Export</option>
+                    <option value="1031" data-i18n="store.categories.developmentTools">Development Tools</option>
+                    <option value="1469" data-i18n="store.categories.garrison">Garrison</option>
+                    <option value="1008" data-i18n="store.categories.guild">Guild</option>
+                    <option value="9338" data-i18n="store.categories.housing">Housing</option>
+                    <option value="1010" data-i18n="store.categories.libraries">Libraries</option>
+                    <option value="1012" data-i18n="store.categories.mail">Mail</option>
+                    <option value="1011" data-i18n="store.categories.mapMinimap">Map & Minimap</option>
+                    <option value="1038" data-i18n="store.categories.minigames">Minigames</option>
+                    <option value="1017" data-i18n="store.categories.miscellaneous">Miscellaneous</option>
+
+                    <optgroup label="Plugins" data-i18n="store.categories.group.plugins">
+                      <option value="1063" data-i18n="store.categories.allPlugins">All Plugins</option>
+                      <option value="1066" data-i18n="store.categories.dataBroker">Data Broker</option>
+                      <option value="1064" data-i18n="store.categories.fuBar">FuBar</option>
+                      <option value="1065" data-i18n="store.categories.titanPanel">Titan Panel</option>
+                    </optgroup>
+
+                    <optgroup label="Professions" data-i18n="store.categories.group.professions">
+                      <option value="1015" data-i18n="store.categories.allProfessions">All Professions</option>
+                      <option value="1042" data-i18n="store.categories.alchemy">Alchemy</option>
+                      <option value="1103" data-i18n="store.categories.archaeology">Archaeology</option>
+                      <option value="1043" data-i18n="store.categories.blacksmithing">Blacksmithing</option>
+                      <option value="1044" data-i18n="store.categories.cooking">Cooking</option>
+                      <option value="1045" data-i18n="store.categories.enchanting">Enchanting</option>
+                      <option value="1046" data-i18n="store.categories.engineering">Engineering</option>
+                      <option value="1047" data-i18n="store.categories.firstAid">First Aid</option>
+                      <option value="1048" data-i18n="store.categories.fishing">Fishing</option>
+                      <option value="1049" data-i18n="store.categories.herbalism">Herbalism</option>
+                      <option value="1059" data-i18n="store.categories.inscription">Inscription</option>
+                      <option value="1050" data-i18n="store.categories.jewelcrafting">Jewelcrafting</option>
+                      <option value="1051" data-i18n="store.categories.leatherworking">Leatherworking</option>
+                      <option value="1052" data-i18n="store.categories.mining">Mining</option>
+                      <option value="1053" data-i18n="store.categories.skinning">Skinning</option>
+                      <option value="1054" data-i18n="store.categories.tailoring">Tailoring</option>
+                    </optgroup>
+
+                    <optgroup label="PvP" data-i18n="store.categories.group.pvp">
+                      <option value="1004" data-i18n="store.categories.allPvP">All PvP</option>
+                      <option value="1040" data-i18n="store.categories.arena">Arena</option>
+                      <option value="1041" data-i18n="store.categories.battleground">Battleground</option>
+                    </optgroup>
+
+                    <option value="1013" data-i18n="store.categories.questsLeveling">Quests & Leveling</option>
+                    <option value="1060" data-i18n="store.categories.roleplay">Roleplay</option>
+                    <option value="1171" data-i18n="store.categories.transmogrification">Transmogrification</option>
+                    <option value="1055" data-i18n="store.categories.tooltip">Tooltip</option>
+                    <option value="4675" data-i18n="store.categories.twitchIntegration">Twitch Integration</option>
+                    <option value="1016" data-i18n="store.categories.unitFrames">Unit Frames</option>
+                  </select>
+                </div>
+
+                <!-- GitHub Search Topic Filters -->
+                <div id="githubTagFilters" class="hidden flex flex-wrap gap-1.5 w-full">
+                  <button
+                    class="github-tag-pill active px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none bg-sky-600/20 border-sky-500 text-sky-400 hover:bg-sky-600/30"
+                    data-tag="wotlk"
+                  >
+                    wotlk
+                  </button>
+                  <button
+                    class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                    data-tag="wow-classic"
+                  >
+                    wow-classic
+                  </button>
+                  <button
+                    class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                    data-tag="world-of-warcraft"
+                  >
+                    world-of-warcraft
+                  </button>
+                  <button
+                    class="github-tag-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                    data-tag="warcraft"
+                  >
+                    warcraft
+                  </button>
+                </div>
+              </div>
+
+              <!-- List of Addons -->
+              <div id="storeListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+                <!-- Injected dynamically -->
+              </div>
+              <div
+                id="storeListEmpty"
+                class="hidden text-center text-slate-500 py-12 text-xs"
+                data-i18n="store.empty"
+              >
+                No addons found
+              </div>
+            </div>
+
+            <!-- Center/Right Details Pane -->
+            <div class="w-[28rem] flex flex-col bg-slate-900/20 p-5 min-w-0">
+              <div
+                id="storeDetailsContent"
+                class="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1"
+              >
+                <div
+                  class="flex-1 flex flex-col items-center justify-center text-slate-500 text-xs text-center"
+                  data-i18n="store.selectAddonHint"
+                >
+                  Select an addon to view details
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div
+            class="px-6 py-4 border-t border-slate-700 bg-slate-900/40 flex items-center justify-between flex-shrink-0"
+          >
+            <div class="text-xs text-slate-400">
+              <span id="storeSelectedCount" class="font-bold text-slate-200">0</span>
+              <span data-i18n="store.selectedLabel">addons selected for download</span>
+            </div>
+            <div class="flex gap-3">
+              <button
+                id="storeCancelBtn"
+                class="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 cursor-pointer outline-none transition-all duration-150"
+                data-i18n="settings.cancel"
+              >
+                Cancel
+              </button>
+              <button
+                id="storeReviewBtn"
+                class="rounded bg-sky-600 px-5 py-2 text-xs font-bold text-slate-100 hover:bg-sky-500 cursor-pointer outline-none transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled
+                data-i18n="store.reviewTitle"
+              >
+                Review Downloads
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Review Downloads Modal (Prism style confirmation) -->
+    <div
+      id="storeDownloadModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    >
+      <div
+        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-full max-w-xl max-h-[80vh] flex flex-col shadow-2xl"
+      >
+        <div class="flex items-center justify-between mb-3 flex-shrink-0">
+          <h2 class="text-base font-bold text-slate-100" data-i18n="store.reviewTitle">
+            Review Downloads
+          </h2>
+        </div>
+        <p class="text-xs text-slate-400 mb-3" data-i18n="store.reviewDesc">
+          The following addons will be downloaded and installed sequentially:
+        </p>
+
+        <!-- Table/List of addons with checkboxes and attributes -->
+        <div
+          class="flex-1 min-h-0 overflow-y-auto mb-4 border border-slate-700 rounded bg-slate-950/50"
+        >
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-700 bg-slate-900/60 text-slate-400">
+                <th class="p-2 w-10 text-center" data-i18n="store.table.install">Install</th>
+                <th class="p-2" data-i18n="store.table.name">Name</th>
+                <th class="p-2" data-i18n="store.table.targetFile">Target File</th>
+                <th class="p-2" data-i18n="store.table.provider">Provider</th>
+                <th class="p-2" data-i18n="store.table.releaseType">Release Type</th>
+              </tr>
+            </thead>
+            <tbody id="store-modal-table-body" class="divide-y divide-slate-700 text-slate-300">
+              <!-- Rows injected dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          class="text-[10px] text-yellow-500/80 mb-4 font-semibold italic"
+          data-i18n="store.reviewNotice"
+        >
+          * Only checked addons in this list will be downloaded!
+        </div>
+
+        <div class="flex justify-end gap-3 flex-shrink-0">
+          <button
+            id="store-modal-cancel"
+            class="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 cursor-pointer outline-none"
+            data-i18n="settings.cancel"
+          >
+            Cancel
+          </button>
+          <button
+            id="store-modal-confirm"
+            class="rounded bg-sky-600 px-5 py-2 text-xs font-bold text-slate-100 hover:bg-sky-500 cursor-pointer outline-none"
+            data-i18n="store.confirmInstall"
+          >
+            Confirm & Download
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Debug Console Modal -->
+    <div
+      id="debugConsoleModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+    >
+      <div
+        class="rounded-lg border border-slate-700 bg-slate-900 p-5 w-full max-w-3xl h-[60vh] flex flex-col shadow-2xl"
+      >
+        <div
+          class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3 flex-shrink-0"
+        >
+          <div class="flex items-center gap-2">
+            <span
+              class="text-xs px-2 py-0.5 rounded bg-red-950/40 border border-red-900/60 text-red-400 font-mono font-bold"
+              >DEBUG CONSOLE</span
+            >
+            <span class="text-xs text-slate-400">Ctrl + Shift + J to toggle</span>
+          </div>
+          <div class="flex gap-2">
+            <button
+              id="debugCopyBtn"
+              class="text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-200 cursor-pointer outline-none"
+            >
+              Copy Logs
+            </button>
+            <button
+              id="debugClearBtn"
+              class="text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-200 cursor-pointer outline-none"
+            >
+              Clear
+            </button>
+            <button
+              id="debugCloseBtn"
+              class="text-slate-400 hover:text-slate-200 text-lg outline-none cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div
+          id="debugLogsContainer"
+          class="flex-1 overflow-y-auto font-mono text-[11px] space-y-1.5 p-3 rounded bg-slate-950 border border-slate-800 text-slate-300 select-text"
+        >
+          <!-- Logs injected here -->
         </div>
       </div>
     </div>

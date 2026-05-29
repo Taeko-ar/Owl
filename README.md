@@ -8,7 +8,9 @@
 
 ## Features
 
-- Enable, disable and update installed addons/patchs.
+- Enable, disable and update installed addons/patchs:
+  - Manage git branches
+  - Install addons from git/zip files
 - Edit `config.wtf` game settings through the launcher.
 
 ## Install
@@ -25,18 +27,18 @@ Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases
 
 - Run in development mode:
 
-   ```bash
-   # Backend
-   npm run dev
-   ```
+  ```bash
+  # Backend
+  npm run dev
+  ```
 
-   ```bash
-   # Frontend
-   npm run preview
-   ```
+  ```bash
+  # Frontend
+  npm run preview
+  ```
 
 - Build for production:
 
-   ```bash
-   npm run build
-   ```
+  ```bash
+  npm run build
+  ```

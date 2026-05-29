@@ -243,3 +243,410 @@ body.light-mode .tweak-sidebar-btn:not(.active):hover {
   color: #111827 !important;
 }
 
+/* Search Bar Slide Reveal (Absolute Overlay to prevent Page Shifting) */
+.search-container {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.search-icon {
+  z-index: 10;
+  transition: color 0.15s ease;
+}
+
+.search-input {
+  position: absolute;
+  right: 32px;
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 5;
+  white-space: nowrap;
+  border-width: 0;
+  border-style: solid;
+  border-color: #1e293b;
+  background-color: #020617;
+}
+
+.search-container:focus-within .search-input,
+.search-input.active {
+  width: 180px;
+  opacity: 1;
+  pointer-events: auto;
+  padding: 4px 24px 4px 8px;
+  border-width: 1px;
+}
+
+.search-clear-btn {
+  right: 38px;
+  z-index: 6;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+
+/* Store Modal Layout Styles */
+.store-sidebar-tab {
+  border-left-width: 2px;
+  transition: all 0.15s ease;
+}
+
+.store-sidebar-tab.active {
+  background-color: rgba(14, 165, 233, 0.08);
+  border-color: #0ea5e9;
+  color: #f8fafc;
+}
+
+.store-sidebar-tab:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #cbd5e1;
+}
+
+/* Addon Item Card Styles */
+.store-addon-card {
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #1e293b;
+  background-color: rgba(15, 23, 42, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.store-addon-card:hover {
+  border-color: #334155;
+  background-color: rgba(15, 23, 42, 0.6);
+  transform: translateY(-1px);
+}
+
+.store-addon-card.selected {
+  border-color: rgba(14, 165, 233, 0.4);
+  background-color: rgba(14, 165, 233, 0.02);
+}
+
+/* Scrollbars */
+#storeListContainer::-webkit-scrollbar,
+#storeDetailsContent::-webkit-scrollbar,
+#store-modal-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#storeListContainer::-webkit-scrollbar-track,
+#storeDetailsContent::-webkit-scrollbar-track,
+#store-modal-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#storeListContainer::-webkit-scrollbar-thumb,
+#storeDetailsContent::-webkit-scrollbar-thumb,
+#store-modal-list::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+#storeListContainer::-webkit-scrollbar-thumb:hover,
+#storeDetailsContent::-webkit-scrollbar-thumb:hover,
+#store-modal-list::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Details Description Pane Styles */
+.details-description {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.details-description h1,
+.details-description h2,
+.details-description h3 {
+  color: #f1f5f9;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.details-description p {
+  margin-bottom: 0.5rem;
+}
+
+.details-description ul {
+  list-style-type: disc;
+  margin-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Debug Console Styles */
+.log-error {
+  color: #f87171;
+}
+
+.log-warn {
+  color: #fbbf24;
+}
+
+.log-info {
+  color: #94a3b8;
+}
+
+#debugLogsContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+#debugLogsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#debugLogsContainer::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+#debugLogsContainer::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Store Modal Light Mode Overrides */
+body.light-mode #storeModal h2 {
+  color: #0f172a !important;
+}
+
+body.light-mode .store-sidebar-tab {
+  color: #475569 !important;
+}
+
+body.light-mode .store-sidebar-tab:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+body.light-mode .store-sidebar-tab.active {
+  background-color: rgba(14, 165, 233, 0.08) !important;
+  border-color: #0ea5e9 !important;
+  color: #0284c7 !important;
+}
+
+body.light-mode .store-addon-card {
+  border-color: #cbd5e1 !important;
+  background-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+body.light-mode .store-addon-card:hover {
+  border-color: #94a3b8 !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+body.light-mode .store-addon-card.selected {
+  border-color: rgba(14, 165, 233, 0.4) !important;
+  background-color: rgba(14, 165, 233, 0.04) !important;
+}
+
+body.light-mode .store-addon-card h4 {
+  color: #0f172a !important;
+}
+
+body.light-mode .store-addon-card p {
+  color: #475569 !important;
+}
+
+body.light-mode #storeDetailsContent {
+  color: #334155 !important;
+}
+
+body.light-mode #storeDetailsContent h3 {
+  color: #0f172a !important;
+}
+
+body.light-mode .details-description {
+  color: #475569 !important;
+}
+
+body.light-mode .details-description h1,
+body.light-mode .details-description h2,
+body.light-mode .details-description h3 {
+  color: #0f172a !important;
+}
+
+body.light-mode .details-description a {
+  color: #0284c7 !important;
+}
+
+body.light-mode #detailVersionSelect {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light-mode #detailSelectBtn {
+  background-color: #f3f4f6 !important;
+  border-color: #cbd5e1 !important;
+  color: #1f2937 !important;
+}
+
+body.light-mode #detailSelectBtn:hover {
+  background-color: #e5e7eb !important;
+}
+
+body.light-mode .github-tag-pill:not(.active) {
+  background-color: #f3f4f6 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+body.light-mode .github-tag-pill:not(.active):hover {
+  background-color: #e5e7eb !important;
+  color: #0f172a !important;
+}
+
+body.light-mode .github-tag-pill.active {
+  background-color: rgba(14, 165, 233, 0.08) !important;
+  border-color: #0ea5e9 !important;
+  color: #0284c7 !important;
+}
+
+body.light-mode #storeListContainer::-webkit-scrollbar-thumb,
+body.light-mode #storeDetailsContent::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
+
+body.light-mode #storeListContainer::-webkit-scrollbar-thumb:hover,
+body.light-mode #storeDetailsContent::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Collapsible sidebar styles */
+.store-sidebar {
+  width: 56px;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  z-index: 20;
+}
+.store-sidebar:hover {
+  width: 144px;
+}
+
+.store-sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.store-sidebar-tab-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  transition:
+    opacity 0.15s ease,
+    width 0.15s ease;
+  pointer-events: none;
+}
+.store-sidebar:hover .store-sidebar-tab-text {
+  opacity: 1;
+  width: auto;
+  pointer-events: auto;
+}
+
+.store-sidebar-warning {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  transition:
+    opacity 0.15s ease,
+    width 0.15s ease;
+  pointer-events: none;
+}
+.store-sidebar:hover .store-sidebar-warning {
+  opacity: 1;
+  width: auto;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+/* Light mode overrides for warning tooltip popup */
+body.light-mode .store-sidebar-warning span {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  border-color: #cbd5e1 !important;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Custom Line Clamp Utility */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Light Mode Overrides for Slate Background Opacities */
+body.light-mode .bg-slate-900\/10 {
+  background-color: transparent !important;
+}
+body.light-mode .bg-slate-900\/20 {
+  background-color: #f3f4f6 !important;
+  border-left: 1px solid #d1d5db !important;
+}
+body.light-mode .bg-slate-900\/30 {
+  background-color: #e5e7eb !important;
+}
+
+body.light-mode #updateAvailableBtn {
+  background-color: rgba(217, 119, 6, 0.15) !important;
+  border-color: rgba(217, 119, 6, 0.4) !important;
+  color: #b45309 !important;
+}
+body.light-mode #updateAvailableBtn:hover {
+  background-color: rgba(217, 119, 6, 0.25) !important;
+}
+
+/* Tooltip hover trigger override */
+.store-sidebar-warning:hover span {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+.store-sidebar-warning span {
+  white-space: normal !important;
+}
+
+/* More Light Mode Overrides */
+body.light-mode .bg-slate-900\/40 {
+  background-color: #f3f4f6 !important;
+}
+body.light-mode .bg-slate-950\/50 {
+  background-color: #ffffff !important;
+}
+body.light-mode .bg-slate-900\/60 {
+  background-color: #f3f4f6 !important;
+}
+body.light-mode #store-modal-table-body tr {
+  border-color: #e5e7eb !important;
+}
+body.light-mode #debugCloseBtn:hover {
+  color: #0f172a !important;
+}
+
+/* Light Mode Overrides for Buttons and Notices */
+body.light-mode #storeReviewBtn,
+body.light-mode #store-modal-confirm {
+  color: #ffffff !important;
+}
+body.light-mode #storeCancelBtn:hover,
+body.light-mode #store-modal-cancel:hover {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+body.light-mode .text-yellow-500\/80 {
+  color: #b45309 !important;
+}

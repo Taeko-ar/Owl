@@ -113,7 +113,6 @@ jobs:
         with:
           ref: release
 
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -191,15 +190,14 @@ jobs:
           mkdir release-assets
           gh release download "$TAG" --dir release-assets --repo "$GITHUB_REPOSITORY"
 
-          echo "| File Name | MD5 Checksum | SHA-256 Checksum |" > checksums-table-only.md
-          echo "| --- | --- | --- |" >> checksums-table-only.md
+          echo "| File Name | SHA-256 Checksum |" > checksums-table-only.md
+          echo "| --- | --- |" >> checksums-table-only.md
 
           cd release-assets
           for file in *; do
             if [ -f "$file" ]; then
-              md5_hash=$(md5sum "$file" | awk '{print $1}')
               sha256_hash=$(sha256sum "$file" | awk '{print $1}')
-              echo "| \`$file\` | \`$md5_hash\` | \`$sha256_hash\` |" >> ../checksums-table-only.md
+              echo "| \`$file\` | \`$sha256_hash\` |" >> ../checksums-table-only.md
             fi
           done
           cd ..
