@@ -1,14 +1,11 @@
 import { Page, Locator } from '@playwright/test';
 
-/**
- * Page Object for the top titlebar and navigation bar.
- * Covers: theme toggle, language selector, settings button,
- * update available button, tab navigation, and action buttons.
- */
 export class NavbarPage {
   readonly page: Page;
 
-  // Titlebar
+  readonly header: Locator;
+  readonly body: Locator;
+
   readonly themeToggleBtn: Locator;
   readonly settingsBtn: Locator;
   readonly langBtn: Locator;
@@ -17,18 +14,26 @@ export class NavbarPage {
   readonly minimizeBtn: Locator;
   readonly windowCloseBtn: Locator;
 
-  // Nav tabs
   readonly addonsTab: Locator;
   readonly tweaksTab: Locator;
   readonly modsTab: Locator;
 
-  // Action buttons (right side of nav)
+  readonly addonsTabSection: Locator;
+  readonly tweaksTabSection: Locator;
+  readonly modsTabSection: Locator;
+
+  readonly statusBar: Locator;
+  readonly playBtn: Locator;
+
   readonly getAddonsBtn: Locator;
   readonly importAddonBtn: Locator;
   readonly openFolderBtn: Locator;
 
   constructor(page: Page) {
     this.page = page;
+
+    this.header = page.locator('header');
+    this.body = page.locator('body');
 
     this.themeToggleBtn = page.locator('#themeToggleBtn');
     this.settingsBtn = page.locator('#settingsBtn');
@@ -41,6 +46,13 @@ export class NavbarPage {
     this.addonsTab = page.locator('[data-tab="addons"]');
     this.tweaksTab = page.locator('[data-tab="tweaks"]');
     this.modsTab = page.locator('[data-tab="mods"]');
+
+    this.addonsTabSection = page.locator('#addons-tab');
+    this.tweaksTabSection = page.locator('#tweaks-tab');
+    this.modsTabSection = page.locator('#mods-tab');
+
+    this.statusBar = page.locator('#status');
+    this.playBtn = page.locator('#playBtn');
 
     this.getAddonsBtn = page.locator('#getAddonsBtn');
     this.importAddonBtn = page.locator('#importAddonBtn');
@@ -67,7 +79,18 @@ export class NavbarPage {
     await this.settingsBtn.click();
   }
 
-  /** Returns true if the active nav tab is the one matching `tab` */
+  async openStore() {
+    await this.getAddonsBtn.click();
+  }
+
+  async addonsTabText(): Promise<string> {
+    return this.addonsTab.innerText();
+  }
+
+  async clickOutside() {
+    await this.page.locator('body').click({ position: { x: 10, y: 10 } });
+  }
+
   async isTabActive(tab: 'addons' | 'tweaks' | 'mods'): Promise<boolean> {
     const el = this.page.locator(`[data-tab="${tab}"]`);
     const classes = await el.getAttribute('class');

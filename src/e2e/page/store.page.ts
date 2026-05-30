@@ -1,42 +1,33 @@
 import { Page, Locator } from '@playwright/test';
 
-/**
- * Page Object for the Addon Store modal (Get Addons).
- */
 export class StorePage {
   readonly page: Page;
 
-  // Modal container
   readonly modal: Locator;
 
-  // Sidebar tabs
   readonly curseforgeTab: Locator;
   readonly githubTab: Locator;
   readonly githubWarningIcon: Locator;
   readonly githubWarningTooltip: Locator;
 
-  // Search and filters
   readonly searchInput: Locator;
   readonly searchClearBtn: Locator;
   readonly categorySelect: Locator;
   readonly categoryFilters: Locator;
   readonly githubTagFilters: Locator;
+  readonly wotlkTagPill: Locator;
 
-  // Results list
   readonly listContainer: Locator;
   readonly emptyMessage: Locator;
 
-  // Details pane
   readonly detailsContent: Locator;
   readonly versionSelect: Locator;
   readonly selectBtn: Locator;
 
-  // Footer
   readonly selectedCount: Locator;
   readonly reviewBtn: Locator;
   readonly cancelBtn: Locator;
 
-  // Review modal
   readonly reviewModal: Locator;
   readonly reviewModalBody: Locator;
   readonly reviewConfirmBtn: Locator;
@@ -57,6 +48,7 @@ export class StorePage {
     this.categorySelect = page.locator('#curseforgeCategorySelect');
     this.categoryFilters = page.locator('#curseforgeCategoryFilters');
     this.githubTagFilters = page.locator('#githubTagFilters');
+    this.wotlkTagPill = page.locator('.github-tag-pill[data-tag="wotlk"]');
 
     this.listContainer = page.locator('#storeListContainer');
     this.emptyMessage = page.locator('#storeListEmpty');
@@ -75,24 +67,52 @@ export class StorePage {
     this.reviewCancelBtn = page.locator('#store-modal-cancel');
   }
 
-  /** All addon cards in the list */
   addonCards(): Locator {
     return this.listContainer.locator('.store-addon-card');
   }
 
-  /** A specific addon card by title text */
   addonCard(name: string): Locator {
     return this.listContainer.locator('.store-addon-card', { hasText: name });
   }
 
-  /** Checkbox on a specific addon card */
   addonCheckbox(index = 0): Locator {
     return this.listContainer.locator('.store-addon-checkbox').nth(index);
   }
 
+  reviewModalRows(): Locator {
+    return this.reviewModalBody.locator('tr');
+  }
+
+  async versionOptionCount(): Promise<number> {
+    return this.versionSelect.locator('option').count();
+  }
+
+  async selectBtnText(): Promise<string> {
+    return (await this.selectBtn.innerText()).trim();
+  }
+
+  async githubWarningTooltipText(): Promise<string> {
+    return (await this.githubWarningTooltip.innerText()).trim();
+  }
+
+  async checkAddon(index = 0) {
+    await this.addonCheckbox(index).check();
+  }
+
+  async uncheckAddon(index = 0) {
+    await this.addonCheckbox(index).uncheck();
+  }
+
+  async openReview() {
+    await this.reviewBtn.click();
+  }
+
+  async cancelReview() {
+    await this.reviewCancelBtn.click();
+  }
+
   async switchToGithub() {
     await this.githubTab.click();
-    // Wait for the GitHub tag filters to become visible
     await this.githubTagFilters.waitFor({ state: 'visible', timeout: 3000 });
   }
 
@@ -116,7 +136,6 @@ export class StorePage {
 
   async clickAddonCard(name: string) {
     await this.addonCard(name).click();
-    // Wait for the details pane to update
     await this.detailsContent.locator('#detailVersionSelect').waitFor({ timeout: 5000 });
   }
 

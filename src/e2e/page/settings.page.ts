@@ -1,8 +1,5 @@
 import { Page, Locator } from '@playwright/test';
 
-/**
- * Page Object for the Settings modal.
- */
 export class SettingsPage {
   readonly page: Page;
 
@@ -28,6 +25,10 @@ export class SettingsPage {
     this.browseBtn = page.locator('#browseGamePathBtn');
     this.windowSizeSelect = page.locator('#windowSize');
     this.stayOpenCheckbox = page.locator('#stayOpen');
+  }
+
+  async windowSizeOptions(): Promise<string[]> {
+    return this.windowSizeSelect.locator('option').allTextContents();
   }
 
   isVisible(): Promise<boolean> {

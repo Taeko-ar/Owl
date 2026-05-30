@@ -24,6 +24,7 @@ pnpm-debug.log*
 .env
 .env.*
 .github/agents
+.agents/
 
 # Local history / workspace metadata
 /scripts/

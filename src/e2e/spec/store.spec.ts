@@ -1,33 +1,32 @@
 import { test, expect } from '../fixtures/app-fixture';
+import { testWithAddons } from '../fixtures/addons-fixture';
 import { NavbarPage } from '../page/navbar.page';
 import { StorePage } from '../page/store.page';
-import { testWithAddons } from '../fixtures/addons-fixture';
 
 test.describe('Store Modal — Open/Close', () => {
-  test('store modal opens when clicking Get Addons', async ({ appPage }) => {
-    const navbar = new NavbarPage(appPage);
-    const store = new StorePage(appPage);
+  let navbar: NavbarPage;
+  let store: StorePage;
 
+  test.beforeEach(async ({ appPage }) => {
+    navbar = new NavbarPage(appPage);
+    store = new StorePage(appPage);
+  });
+
+  test('store modal opens when clicking Get Addons', async () => {
     await expect(store.modal).toBeHidden();
-    await navbar.getAddonsBtn.click();
+    await navbar.openStore();
     await expect(store.modal).toBeVisible();
   });
 
-  test('store modal closes when clicking Cancel', async ({ appPage }) => {
-    const navbar = new NavbarPage(appPage);
-    const store = new StorePage(appPage);
-
-    await navbar.getAddonsBtn.click();
+  test('store modal closes when clicking Cancel', async () => {
+    await navbar.openStore();
     await expect(store.modal).toBeVisible();
     await store.close();
     await expect(store.modal).toBeHidden();
   });
 
-  test('store modal closes when clicking backdrop', async ({ appPage }) => {
-    const navbar = new NavbarPage(appPage);
-    const store = new StorePage(appPage);
-
-    await navbar.getAddonsBtn.click();
+  test('store modal closes when clicking backdrop', async () => {
+    await navbar.openStore();
     await expect(store.modal).toBeVisible();
     await store.closeViaBackdrop();
     await expect(store.modal).toBeHidden();
@@ -35,196 +34,143 @@ test.describe('Store Modal — Open/Close', () => {
 });
 
 test.describe('Store Modal — CurseForge Tab', () => {
+  let store: StorePage;
+
   test.beforeEach(async ({ appPage }) => {
     const navbar = new NavbarPage(appPage);
-    await navbar.getAddonsBtn.click();
-    await appPage.locator('#storeListContainer').waitFor({ state: 'visible' });
-    // Wait for results to load
-    await appPage.waitForTimeout(500);
+    store = new StorePage(appPage);
+    await navbar.openStore();
+    await store.addonCards().first().waitFor({ state: 'visible' });
   });
 
-  test('renders CurseForge addon cards', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    const cards = store.addonCards();
-    await expect(cards).toHaveCount(2);
+  test('renders CurseForge addon cards', async () => {
+    await expect(store.addonCards()).toHaveCount(2);
     await expect(store.addonCard('Questie')).toBeVisible();
     await expect(store.addonCard('Deadly Boss Mods')).toBeVisible();
   });
 
-  test('CurseForge tab is active by default and category filters are visible', async ({
-    appPage,
-  }) => {
-    const store = new StorePage(appPage);
+  test('CurseForge tab is active by default and category filters are visible', async () => {
     await expect(store.curseforgeTab).toHaveClass(/active/);
     await expect(store.categoryFilters).toBeVisible();
     await expect(store.githubTagFilters).toBeHidden();
   });
 
-  test('search input clears results and re-fetches', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
+  test('search input clears results and re-fetches', async () => {
     await store.search('Questie');
-    // Clear button should appear
     await expect(store.searchClearBtn).toBeVisible();
-
     await store.clearSearch();
     await expect(store.searchInput).toHaveValue('');
     await expect(store.searchClearBtn).toBeHidden();
   });
 
-  test('selecting a category triggers a new search', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    // Select "Action Bars" category
+  test('selecting a category triggers a new search', async () => {
     await store.selectCategory('1018');
-    await appPage.waitForTimeout(300);
-    // The list should still render (mock returns same results regardless)
-    await expect(store.listContainer).toBeVisible();
+    await expect(store.addonCards().first()).toBeVisible();
   });
 
-  test('clicking an addon card loads version selector in details pane', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    await store.addonCard('Questie').click();
-    await expect(store.versionSelect).toBeVisible({ timeout: 5000 });
+  test('clicking an addon card loads version selector in details pane', async () => {
+    await store.clickAddonCard('Questie');
+    await expect(store.versionSelect).toBeVisible();
     await expect(store.selectBtn).toBeVisible();
   });
 
-  test('details pane shows author info after clicking a card', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    await store.addonCard('Questie').click();
-    await appPage.waitForTimeout(500);
+  test('details pane shows author info after clicking a card', async () => {
+    await store.clickAddonCard('Questie');
     await expect(store.detailsContent).toContainText('QuestieDevs');
   });
 
-  test('version selector has at least one option after selecting addon', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    await store.addonCard('Questie').click();
-    await expect(store.versionSelect).toBeVisible({ timeout: 5000 });
-    const optionCount = await store.versionSelect.locator('option').count();
+  test('version selector has at least one option after selecting addon', async () => {
+    await store.clickAddonCard('Questie');
+    const optionCount = await store.versionOptionCount();
     expect(optionCount).toBeGreaterThan(0);
   });
 
-  test('Download button text is "Download" initially', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-    await store.addonCard('Questie').click();
-    await expect(store.selectBtn).toBeVisible({ timeout: 5000 });
-    const text = await store.selectBtn.innerText();
-    expect(text.trim()).toBe('Download');
+  test('Download button text is "Download" initially', async () => {
+    await store.clickAddonCard('Questie');
+    expect(await store.selectBtnText()).toBe('Download');
   });
 
-  test('clicking Download queues the addon and updates selected count', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
-    // Initial count
+  test('clicking Download queues the addon and updates selected count', async () => {
     await expect(store.selectedCount).toHaveText('0');
     await expect(store.reviewBtn).toBeDisabled();
-
-    // Select an addon via checkbox
-    const checkbox = store.addonCheckbox(0);
-    await checkbox.check();
-    await appPage.waitForTimeout(200);
-
+    await store.checkAddon(0);
     await expect(store.selectedCount).toHaveText('1');
     await expect(store.reviewBtn).toBeEnabled();
   });
 
-  test('unchecking an addon decrements selected count', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
-    const checkbox = store.addonCheckbox(0);
-    await checkbox.check();
-    await appPage.waitForTimeout(200);
+  test('unchecking an addon decrements selected count', async () => {
+    await store.checkAddon(0);
     await expect(store.selectedCount).toHaveText('1');
-
-    await checkbox.uncheck();
-    await appPage.waitForTimeout(200);
+    await store.uncheckAddon(0);
     await expect(store.selectedCount).toHaveText('0');
     await expect(store.reviewBtn).toBeDisabled();
   });
 
-  test('clicking Review Downloads opens review modal', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
-    const checkbox = store.addonCheckbox(0);
-    await checkbox.check();
-    await appPage.waitForTimeout(200);
-    await store.reviewBtn.click();
-
+  test('clicking Review Downloads opens review modal', async () => {
+    await store.checkAddon(0);
+    await store.openReview();
     await expect(store.reviewModal).toBeVisible();
   });
 
-  test('review modal lists selected addons in table', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
-    await store.addonCheckbox(0).check();
-    await appPage.waitForTimeout(200);
-    await store.reviewBtn.click();
-
+  test('review modal lists selected addons in table', async () => {
+    await store.checkAddon(0);
+    await store.openReview();
     await expect(store.reviewModalBody).toBeVisible();
-    const rows = store.reviewModalBody.locator('tr');
-    await expect(rows).toHaveCount(1);
+    await expect(store.reviewModalRows()).toHaveCount(1);
   });
 
-  test('cancelling review modal returns to store', async ({ appPage }) => {
-    const store = new StorePage(appPage);
-
-    await store.addonCheckbox(0).check();
-    await appPage.waitForTimeout(200);
-    await store.reviewBtn.click();
-    await store.reviewCancelBtn.click();
-
+  test('cancelling review modal returns to store', async () => {
+    await store.checkAddon(0);
+    await store.openReview();
+    await store.cancelReview();
     await expect(store.reviewModal).toBeHidden();
     await expect(store.modal).toBeVisible();
   });
 });
 
 test.describe('Store Modal — GitHub Tab', () => {
+  let store: StorePage;
+
   test.beforeEach(async ({ appPage }) => {
     const navbar = new NavbarPage(appPage);
-    const store = new StorePage(appPage);
-    await navbar.getAddonsBtn.click();
-    await appPage.waitForTimeout(300);
-    await store.githubTab.click();
-    await appPage.waitForTimeout(300);
+    store = new StorePage(appPage);
+    await navbar.openStore();
+    await store.listContainer.waitFor({ state: 'visible' });
+    await store.switchToGithub();
   });
 
-  test('GitHub tab becomes active after clicking', async ({ appPage }) => {
-    const store = new StorePage(appPage);
+  test('GitHub tab becomes active after clicking', async () => {
     await expect(store.githubTab).toHaveClass(/active/);
   });
 
-  test('GitHub tag pills are visible after switching to GitHub tab', async ({ appPage }) => {
-    const store = new StorePage(appPage);
+  test('GitHub tag pills are visible after switching to GitHub tab', async () => {
     await expect(store.githubTagFilters).toBeVisible();
     await expect(store.categoryFilters).toBeHidden();
   });
 
-  test('wotlk tag pill is active by default on GitHub tab', async ({ appPage }) => {
-    const wotlkPill = appPage.locator('.github-tag-pill[data-tag="wotlk"]');
-    await expect(wotlkPill).toHaveClass(/active/);
+  test('wotlk tag pill is active by default on GitHub tab', async () => {
+    await expect(store.wotlkTagPill).toHaveClass(/active/);
   });
 
-  test('GitHub warning tooltip is visible in the DOM', async ({ appPage }) => {
-    const store = new StorePage(appPage);
+  test('GitHub warning tooltip is visible in the DOM', async () => {
     await expect(store.githubWarningTooltip).toBeAttached();
-    const text = await store.githubWarningTooltip.innerText();
-    expect(text.trim().length).toBeGreaterThan(0);
+    const text = await store.githubWarningTooltipText();
+    expect(text.length).toBeGreaterThan(0);
   });
 });
 
-// GitHub search cards test needs the addons fixture (different fixture context)
-test.describe.skip('Store Modal — GitHub Tab Search', () => {
-  testWithAddons('GitHub search renders addon cards after tab switch', async ({ addonsPage }) => {
-    const store = new StorePage(addonsPage);
+testWithAddons.describe('Store Modal — GitHub Tab Search', () => {
+  let store: StorePage;
+
+  testWithAddons.beforeEach(async ({ addonsPage }) => {
     const navbar = new NavbarPage(addonsPage);
-    await navbar.getAddonsBtn.click();
-    await addonsPage.waitForTimeout(400);
-    await store.githubTab.click();
-    // Wait for GitHub results to replace CurseForge results (CF mock=2, GH mock=1)
-    await addonsPage.waitForFunction(
-      () => document.querySelectorAll('#storeListContainer .store-addon-card').length <= 2,
-      { timeout: 6000 }
-    );
-    const count = await store.addonCards().count();
-    expect(count).toBeGreaterThan(0);
+    store = new StorePage(addonsPage);
+    await navbar.openStore();
+    await store.listContainer.waitFor({ state: 'visible' });
+  });
+
+  testWithAddons('GitHub search renders addon cards after tab switch', async () => {
+    await store.switchToGithub();
+    await expect(store.addonCards().first()).toBeVisible({ timeout: 6000 });
   });
 });
