@@ -797,7 +797,7 @@ fn load_settings() -> std::result::Result<LauncherSettings, String> {
         return Ok(LauncherSettings {
             path: default_path,
             window_size: None,
-            stay_open: None,
+            stay_open: Some(true),
         });
     }
 
@@ -809,6 +809,9 @@ fn load_settings() -> std::result::Result<LauncherSettings, String> {
         } else {
             dirs::home_dir().map(|p| p.to_string_lossy().to_string()).or_else(|| Some("/".to_string()))
         };
+    }
+    if settings.stay_open.is_none() {
+        settings.stay_open = Some(true);
     }
     Ok(settings)
 }

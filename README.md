@@ -5,6 +5,7 @@
 [![Test/Linter Status](https://github.com/Taeko-ar/Owl/actions/workflows/test-linter.yml/badge.svg)](https://github.com/Taeko-ar/Owl/actions/workflows/test-linter.yml)
 [![Release Build Status](https://github.com/Taeko-ar/Owl/actions/workflows/release.yml/badge.svg)](https://github.com/Taeko-ar/Owl/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-blue.svg)](https://github.com/Taeko-ar/Owl/blob/main/LICENSE.md)
+
 <p align="center">
   <img src="img/launcher.gif" width="100%" alt="OWL Preview">
 </p>
@@ -38,31 +39,31 @@ Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases
 
 - Run in development mode:
 
-   ```bash
-   # Backend
-   npm run dev
-   ```
+  ```bash
+  # Backend
+  npm run dev
+  ```
 
-   ```bash
-   # Frontend
-   npm run preview
-   ```
+  ```bash
+  # Frontend
+  npm run preview
+  ```
 
 - Run tests:
 
-   ```bash
-   # Run all unit tests
-   npm run unit
+  ```bash
+  # Run all unit tests
+  npm run unit
 
-   # Run with coverage reports
-   npx vitest run --coverage
+  # Run with coverage reports
+  npx vitest run --coverage
 
-   # Run automated E2E tests
-   npm run automation
-   ```
+  # Run automated E2E tests
+  npm run automation
+  ```
 
 - Build for production:
 
-   ```bash
-   npm run build
-   ```
+  ```bash
+  npm run build
+  ```
