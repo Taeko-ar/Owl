@@ -392,7 +392,6 @@
       </div>
     </div>
 
-    <!-- Addon Store Modal -->
     <div
       id="storeModal"
       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
@@ -400,18 +399,22 @@
       <div
         class="relative rounded-lg border border-slate-700 bg-slate-900 w-full max-w-5xl h-[85vh] flex flex-row shadow-2xl overflow-hidden"
       >
-
-        <!-- Leftmost Site Selector Tabs (Collapsible Sidebar) -->
         <div
           class="store-sidebar w-14 flex flex-col bg-slate-900/30 py-4 border-r border-slate-700 flex-shrink-0 relative"
         >
-          <!-- CurseForge Tab -->
           <button
             class="store-sidebar-tab active px-4 py-3 text-left text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-150 outline-none border-l-2 border-sky-500 cursor-pointer flex items-center gap-3.5 w-full"
             data-site="curseforge"
           >
-            <!-- Anvil SVG icon -->
-            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              class="w-5 h-5 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M7 10H6a4 4 0 0 1-4-4 1 1 0 0 1 1-1h4" />
               <path d="M7 5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1 7 7 0 0 1-7 7H8a1 1 0 0 1-1-1z" />
               <path d="M9 12v5" />
@@ -421,13 +424,11 @@
             <span class="store-sidebar-tab-text select-none">CurseForge</span>
           </button>
 
-          <!-- GitHub Tab -->
           <button
             class="store-sidebar-tab px-4 py-3 text-left text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-150 outline-none border-l-2 border-transparent cursor-pointer flex items-center justify-between gap-2 w-full"
             data-site="github"
           >
             <span class="flex items-center gap-3.5 min-w-0">
-              <!-- GitHub SVG octocat icon -->
               <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   fill-rule="evenodd"
@@ -437,7 +438,7 @@
               </svg>
               <span class="store-sidebar-tab-text select-none">GitHub</span>
             </span>
-            <!-- Warning indicator with popup details -->
+
             <span
               class="store-sidebar-warning relative group flex items-center justify-center pointer-events-auto"
             >
@@ -455,7 +456,7 @@
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <!-- Styled Tooltip Container -->
+
               <span
                 class="absolute left-8 top-1/2 -translate-y-1/2 w-64 p-3 bg-slate-950 text-slate-200 border border-slate-700 text-[11px] leading-relaxed rounded-md shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 normal-case font-normal border-l-4 border-l-amber-500 whitespace-normal"
                 data-i18n="store.githubWarning"
@@ -468,15 +469,10 @@
           </button>
         </div>
 
-        <!-- Right Pane: Content Grid + Footer -->
         <div class="flex-1 flex flex-col min-w-0 bg-slate-900/10">
-          <!-- Main Content split view -->
           <div class="flex-1 flex min-h-0">
-            <!-- Left Pane: Addon List & Search -->
             <div class="flex-1 flex flex-col border-r border-slate-700 min-w-0 p-5">
-              <!-- Top Row: Search and filters stacked vertically -->
               <div class="flex flex-col gap-3 mb-4 flex-shrink-0">
-                <!-- Search Container -->
                 <div class="relative flex items-center h-9 w-full flex-shrink-0">
                   <input
                     type="text"
@@ -510,7 +506,6 @@
                   </button>
                 </div>
 
-                <!-- CurseForge Category Filters -->
                 <div
                   id="curseforgeCategoryFilters"
                   class="hidden w-full flex items-center gap-2 min-w-0"
@@ -525,20 +520,42 @@
                     class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-slate-500 transition-all duration-200 cursor-pointer"
                   >
                     <option value="" data-i18n="store.categories.all">All Categories</option>
-                    <option value="1067" data-i18n="store.categories.achievements">Achievements</option>
-                    <option value="1018" data-i18n="store.categories.actionBars">Action Bars</option>
+                    <option value="1067" data-i18n="store.categories.achievements">
+                      Achievements
+                    </option>
+                    <option value="1018" data-i18n="store.categories.actionBars">
+                      Action Bars
+                    </option>
                     <option value="1006" data-i18n="store.categories.artwork">Artwork</option>
-                    <option value="1002" data-i18n="store.categories.auctionEconomy">Auction & Economy</option>
-                    <option value="1003" data-i18n="store.categories.audioVideo">Audio & Video</option>
-                    <option value="1009" data-i18n="store.categories.bagsInventory">Bags & Inventory</option>
-                    <option value="1014" data-i18n="store.categories.bossEncounters">Boss Encounters</option>
-                    <option value="1005" data-i18n="store.categories.buffsDebuffs">Buffs & Debuffs</option>
-                    <option value="1001" data-i18n="store.categories.chatCommunication">Chat & Communication</option>
+                    <option value="1002" data-i18n="store.categories.auctionEconomy">
+                      Auction & Economy
+                    </option>
+                    <option value="1003" data-i18n="store.categories.audioVideo">
+                      Audio & Video
+                    </option>
+                    <option value="1009" data-i18n="store.categories.bagsInventory">
+                      Bags & Inventory
+                    </option>
+                    <option value="1014" data-i18n="store.categories.bossEncounters">
+                      Boss Encounters
+                    </option>
+                    <option value="1005" data-i18n="store.categories.buffsDebuffs">
+                      Buffs & Debuffs
+                    </option>
+                    <option value="1001" data-i18n="store.categories.chatCommunication">
+                      Chat & Communication
+                    </option>
 
                     <optgroup label="Class" data-i18n="store.categories.group.class">
-                      <option value="1020" data-i18n="store.categories.allClasses">All Classes</option>
-                      <option value="1036" data-i18n="store.categories.deathKnight">Death Knight</option>
-                      <option value="1502" data-i18n="store.categories.demonHunters">Demon Hunters</option>
+                      <option value="1020" data-i18n="store.categories.allClasses">
+                        All Classes
+                      </option>
+                      <option value="1036" data-i18n="store.categories.deathKnight">
+                        Death Knight
+                      </option>
+                      <option value="1502" data-i18n="store.categories.demonHunters">
+                        Demon Hunters
+                      </option>
                       <option value="1023" data-i18n="store.categories.druid">Druid</option>
                       <option value="6137" data-i18n="store.categories.evoker">Evoker</option>
                       <option value="1024" data-i18n="store.categories.hunter">Hunter</option>
@@ -553,50 +570,88 @@
                     </optgroup>
 
                     <optgroup label="Combat" data-i18n="store.categories.group.combat">
-                      <option value="1019" data-i18n="store.categories.allCombat">All Combat</option>
+                      <option value="1019" data-i18n="store.categories.allCombat">
+                        All Combat
+                      </option>
                       <option value="1034" data-i18n="store.categories.caster">Caster</option>
-                      <option value="1035" data-i18n="store.categories.damageDealer">Damage Dealer</option>
+                      <option value="1035" data-i18n="store.categories.damageDealer">
+                        Damage Dealer
+                      </option>
                       <option value="1032" data-i18n="store.categories.healer">Healer</option>
                       <option value="1033" data-i18n="store.categories.tank">Tank</option>
                     </optgroup>
 
                     <optgroup label="Companions" data-i18n="store.categories.group.companions">
-                      <option value="1085" data-i18n="store.categories.allCompanions">All Companions</option>
-                      <option value="1243" data-i18n="store.categories.battlePets">Battle Pets</option>
+                      <option value="1085" data-i18n="store.categories.allCompanions">
+                        All Companions
+                      </option>
+                      <option value="1243" data-i18n="store.categories.battlePets">
+                        Battle Pets
+                      </option>
                     </optgroup>
 
-                    <option value="1007" data-i18n="store.categories.dataExport">Data Export</option>
-                    <option value="1031" data-i18n="store.categories.developmentTools">Development Tools</option>
+                    <option value="1007" data-i18n="store.categories.dataExport">
+                      Data Export
+                    </option>
+                    <option value="1031" data-i18n="store.categories.developmentTools">
+                      Development Tools
+                    </option>
                     <option value="1469" data-i18n="store.categories.garrison">Garrison</option>
                     <option value="1008" data-i18n="store.categories.guild">Guild</option>
                     <option value="9338" data-i18n="store.categories.housing">Housing</option>
                     <option value="1010" data-i18n="store.categories.libraries">Libraries</option>
                     <option value="1012" data-i18n="store.categories.mail">Mail</option>
-                    <option value="1011" data-i18n="store.categories.mapMinimap">Map & Minimap</option>
+                    <option value="1011" data-i18n="store.categories.mapMinimap">
+                      Map & Minimap
+                    </option>
                     <option value="1038" data-i18n="store.categories.minigames">Minigames</option>
-                    <option value="1017" data-i18n="store.categories.miscellaneous">Miscellaneous</option>
+                    <option value="1017" data-i18n="store.categories.miscellaneous">
+                      Miscellaneous
+                    </option>
 
                     <optgroup label="Plugins" data-i18n="store.categories.group.plugins">
-                      <option value="1063" data-i18n="store.categories.allPlugins">All Plugins</option>
-                      <option value="1066" data-i18n="store.categories.dataBroker">Data Broker</option>
+                      <option value="1063" data-i18n="store.categories.allPlugins">
+                        All Plugins
+                      </option>
+                      <option value="1066" data-i18n="store.categories.dataBroker">
+                        Data Broker
+                      </option>
                       <option value="1064" data-i18n="store.categories.fuBar">FuBar</option>
-                      <option value="1065" data-i18n="store.categories.titanPanel">Titan Panel</option>
+                      <option value="1065" data-i18n="store.categories.titanPanel">
+                        Titan Panel
+                      </option>
                     </optgroup>
 
                     <optgroup label="Professions" data-i18n="store.categories.group.professions">
-                      <option value="1015" data-i18n="store.categories.allProfessions">All Professions</option>
+                      <option value="1015" data-i18n="store.categories.allProfessions">
+                        All Professions
+                      </option>
                       <option value="1042" data-i18n="store.categories.alchemy">Alchemy</option>
-                      <option value="1103" data-i18n="store.categories.archaeology">Archaeology</option>
-                      <option value="1043" data-i18n="store.categories.blacksmithing">Blacksmithing</option>
+                      <option value="1103" data-i18n="store.categories.archaeology">
+                        Archaeology
+                      </option>
+                      <option value="1043" data-i18n="store.categories.blacksmithing">
+                        Blacksmithing
+                      </option>
                       <option value="1044" data-i18n="store.categories.cooking">Cooking</option>
-                      <option value="1045" data-i18n="store.categories.enchanting">Enchanting</option>
-                      <option value="1046" data-i18n="store.categories.engineering">Engineering</option>
+                      <option value="1045" data-i18n="store.categories.enchanting">
+                        Enchanting
+                      </option>
+                      <option value="1046" data-i18n="store.categories.engineering">
+                        Engineering
+                      </option>
                       <option value="1047" data-i18n="store.categories.firstAid">First Aid</option>
                       <option value="1048" data-i18n="store.categories.fishing">Fishing</option>
                       <option value="1049" data-i18n="store.categories.herbalism">Herbalism</option>
-                      <option value="1059" data-i18n="store.categories.inscription">Inscription</option>
-                      <option value="1050" data-i18n="store.categories.jewelcrafting">Jewelcrafting</option>
-                      <option value="1051" data-i18n="store.categories.leatherworking">Leatherworking</option>
+                      <option value="1059" data-i18n="store.categories.inscription">
+                        Inscription
+                      </option>
+                      <option value="1050" data-i18n="store.categories.jewelcrafting">
+                        Jewelcrafting
+                      </option>
+                      <option value="1051" data-i18n="store.categories.leatherworking">
+                        Leatherworking
+                      </option>
                       <option value="1052" data-i18n="store.categories.mining">Mining</option>
                       <option value="1053" data-i18n="store.categories.skinning">Skinning</option>
                       <option value="1054" data-i18n="store.categories.tailoring">Tailoring</option>
@@ -605,19 +660,28 @@
                     <optgroup label="PvP" data-i18n="store.categories.group.pvp">
                       <option value="1004" data-i18n="store.categories.allPvP">All PvP</option>
                       <option value="1040" data-i18n="store.categories.arena">Arena</option>
-                      <option value="1041" data-i18n="store.categories.battleground">Battleground</option>
+                      <option value="1041" data-i18n="store.categories.battleground">
+                        Battleground
+                      </option>
                     </optgroup>
 
-                    <option value="1013" data-i18n="store.categories.questsLeveling">Quests & Leveling</option>
+                    <option value="1013" data-i18n="store.categories.questsLeveling">
+                      Quests & Leveling
+                    </option>
                     <option value="1060" data-i18n="store.categories.roleplay">Roleplay</option>
-                    <option value="1171" data-i18n="store.categories.transmogrification">Transmogrification</option>
+                    <option value="1171" data-i18n="store.categories.transmogrification">
+                      Transmogrification
+                    </option>
                     <option value="1055" data-i18n="store.categories.tooltip">Tooltip</option>
-                    <option value="4675" data-i18n="store.categories.twitchIntegration">Twitch Integration</option>
-                    <option value="1016" data-i18n="store.categories.unitFrames">Unit Frames</option>
+                    <option value="4675" data-i18n="store.categories.twitchIntegration">
+                      Twitch Integration
+                    </option>
+                    <option value="1016" data-i18n="store.categories.unitFrames">
+                      Unit Frames
+                    </option>
                   </select>
                 </div>
 
-                <!-- GitHub Search Topic Filters -->
                 <div id="githubTagFilters" class="hidden flex flex-wrap gap-1.5 w-full">
                   <button
                     class="github-tag-pill active px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all duration-150 cursor-pointer outline-none bg-sky-600/20 border-sky-500 text-sky-400 hover:bg-sky-600/30"
@@ -646,10 +710,10 @@
                 </div>
               </div>
 
-              <!-- List of Addons -->
-              <div id="storeListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-                <!-- Injected dynamically -->
-              </div>
+              <div
+                id="storeListContainer"
+                class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0"
+              ></div>
               <div
                 id="storeListEmpty"
                 class="hidden text-center text-slate-500 py-12 text-xs"
@@ -659,7 +723,6 @@
               </div>
             </div>
 
-            <!-- Center/Right Details Pane -->
             <div class="w-[28rem] flex flex-col bg-slate-900/20 p-5 min-w-0">
               <div
                 id="storeDetailsContent"
@@ -675,7 +738,6 @@
             </div>
           </div>
 
-          <!-- Footer -->
           <div
             class="px-6 py-4 border-t border-slate-700 bg-slate-900/40 flex items-center justify-between flex-shrink-0"
           >
@@ -705,7 +767,6 @@
       </div>
     </div>
 
-    <!-- Review Downloads Modal (Prism style confirmation) -->
     <div
       id="storeDownloadModal"
       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -722,7 +783,6 @@
           The following addons will be downloaded and installed sequentially:
         </p>
 
-        <!-- Table/List of addons with checkboxes and attributes -->
         <div
           class="flex-1 min-h-0 overflow-y-auto mb-4 border border-slate-700 rounded bg-slate-950/50"
         >
@@ -736,9 +796,10 @@
                 <th class="p-2" data-i18n="store.table.releaseType">Release Type</th>
               </tr>
             </thead>
-            <tbody id="store-modal-table-body" class="divide-y divide-slate-700 text-slate-300">
-              <!-- Rows injected dynamically -->
-            </tbody>
+            <tbody
+              id="store-modal-table-body"
+              class="divide-y divide-slate-700 text-slate-300"
+            ></tbody>
           </table>
         </div>
 
@@ -768,7 +829,6 @@
       </div>
     </div>
 
-    <!-- Debug Console Modal -->
     <div
       id="debugConsoleModal"
       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
@@ -810,9 +870,7 @@
         <div
           id="debugLogsContainer"
           class="flex-1 overflow-y-auto font-mono text-[11px] space-y-1.5 p-3 rounded bg-slate-950 border border-slate-800 text-slate-300 select-text"
-        >
-          <!-- Logs injected here -->
-        </div>
+        ></div>
       </div>
     </div>
   </body>

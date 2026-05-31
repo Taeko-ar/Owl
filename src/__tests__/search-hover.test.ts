@@ -6,7 +6,6 @@ describe('Search Hover Behavior', () => {
   let input: HTMLInputElement;
 
   beforeEach(() => {
-    // Setup mock DOM environment
     document.body.innerHTML = `
       <div class="search-container">
         <input type="text" class="search-input" />
@@ -28,7 +27,6 @@ describe('Search Hover Behavior', () => {
   it('adds active class on mouseenter', () => {
     expect(input.classList.contains('active')).toBe(false);
 
-    // Trigger mouseenter on container
     container.dispatchEvent(new Event('mouseenter'));
     expect(input.classList.contains('active')).toBe(true);
   });
@@ -37,13 +35,11 @@ describe('Search Hover Behavior', () => {
     container.dispatchEvent(new Event('mouseenter'));
     expect(input.classList.contains('active')).toBe(true);
 
-    // Trigger mouseleave
     container.dispatchEvent(new Event('mouseleave'));
-    // Should still be active before 3s
+
     vi.advanceTimersByTime(2900);
     expect(input.classList.contains('active')).toBe(true);
 
-    // Advance past 3s
     vi.advanceTimersByTime(200);
     expect(input.classList.contains('active')).toBe(false);
   });
@@ -55,9 +51,8 @@ describe('Search Hover Behavior', () => {
     container.dispatchEvent(new Event('mouseleave'));
     vi.advanceTimersByTime(1500);
 
-    // Mouse enters again
     container.dispatchEvent(new Event('mouseenter'));
-    vi.advanceTimersByTime(2000); // Past the initial 3s mark
+    vi.advanceTimersByTime(2000);
     expect(input.classList.contains('active')).toBe(true);
   });
 
@@ -65,9 +60,8 @@ describe('Search Hover Behavior', () => {
     container.dispatchEvent(new Event('mouseenter'));
     expect(input.classList.contains('active')).toBe(true);
 
-    // Mock focus behavior
     input.focus();
-    // input.focus() event might need to be explicitly dispatched if jsdom is slow
+
     input.dispatchEvent(new Event('focus'));
 
     container.dispatchEvent(new Event('mouseleave'));
@@ -80,7 +74,6 @@ describe('Search Hover Behavior', () => {
     container.dispatchEvent(new Event('mouseenter'));
     expect(input.classList.contains('active')).toBe(true);
 
-    // Type some text
     input.value = 'Questie';
 
     container.dispatchEvent(new Event('mouseleave'));

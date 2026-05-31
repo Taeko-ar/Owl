@@ -4,7 +4,6 @@ import path from 'path';
 
 const mockInvoke = (globalThis as any).mockInvoke;
 
-// Mock global fetch
 const mockFetch = vi.fn();
 
 describe('GitHub Addon Provider', () => {
@@ -29,11 +28,9 @@ describe('GitHub Addon Provider', () => {
       return Promise.resolve();
     });
 
-    // Set up the DOM from index.html
     const html = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
     document.body.innerHTML = html;
 
-    // Default mock fetch implementations
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('api.github.com/search/repositories')) {
         return Promise.resolve({
@@ -85,7 +82,6 @@ describe('GitHub Addon Provider', () => {
         });
       }
       if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/)) {
-        // repo meta fallback mock
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ default_branch: 'main' }),
@@ -122,19 +118,17 @@ describe('GitHub Addon Provider', () => {
 
     expect(githubTab.classList.contains('active')).toBe(true);
 
-    // Verify tag filters container is visible
     const tagFilters = document.getElementById('githubTagFilters') as HTMLDivElement;
     expect(tagFilters).not.toBeNull();
     expect(tagFilters.classList.contains('hidden')).toBe(false);
 
-    // Verify search is initiated with topic:wotlk sorted by stars
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('search/repositories?q=topic%3Awotlk')
     );
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('sort=stars&order=desc'));
 
     const cards = document.querySelectorAll('.store-addon-card');
-    expect(cards.length).toBe(1); // Questie (mocked search response)
+    expect(cards.length).toBe(1);
     expect(cards[0].querySelector('h4')?.textContent).toBe('Questie');
   });
 
@@ -152,7 +146,7 @@ describe('GitHub Addon Provider', () => {
     const searchInput = document.getElementById('storeSearchInput') as HTMLInputElement;
     searchInput.value = 'Questie';
     searchInput.dispatchEvent(new Event('input'));
-    // Wait for 400ms debounce + search promise
+
     await new Promise((r) => setTimeout(r, 500));
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -176,10 +170,8 @@ describe('GitHub Addon Provider', () => {
     githubTab.click();
     await new Promise((r) => setTimeout(r, 50));
 
-    // Clear call history of mockFetch to isolate the pill click trigger
     mockFetch.mockClear();
 
-    // Click the warcraft pill (which is inactive by default) to activate it
     const warcraftPill = document.querySelector(
       '.github-tag-pill[data-tag="warcraft"]'
     ) as HTMLButtonElement;
@@ -187,10 +179,8 @@ describe('GitHub Addon Provider', () => {
     warcraftPill.click();
     await new Promise((r) => setTimeout(r, 50));
 
-    // Check that it's marked active and styles are updated
     expect(warcraftPill.classList.contains('active')).toBe(true);
 
-    // Verify it triggers fetch with 'warcraft' included
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('topic%3Awotlk%20OR%20topic%3Awarcraft')
     );
@@ -226,7 +216,6 @@ describe('GitHub Addon Provider', () => {
   });
 
   it('falls back to tag or branch zip if release has no built assets', async () => {
-    // Override fetch to return release without assets
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('api.github.com/search/repositories')) {
         return Promise.resolve({
@@ -259,7 +248,7 @@ describe('GitHub Addon Provider', () => {
                 name: 'Questie v3.7.2',
                 tag_name: 'v3.7.2',
                 prerelease: false,
-                assets: [], // empty assets
+                assets: [],
               },
             ]),
         });

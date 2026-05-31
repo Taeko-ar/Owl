@@ -1,11 +1,3 @@
-/**
- * Tauri invoke mock — injected via page.addInitScript() before any app code runs.
- * This replaces the @tauri-apps/api/core and @tauri-apps/api/event modules with
- * stubs that return realistic fixture data so the UI renders correctly in Vite preview.
- *
- * Extend the switch-case below as new Tauri commands are added to main.rs.
- */
-
 export const TAURI_MOCK_SCRIPT = `
   // Stub the Tauri IPC bridge so import('@tauri-apps/api/core').invoke() works
   window.__TAURI_INTERNALS__ = {

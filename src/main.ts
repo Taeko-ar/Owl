@@ -1248,7 +1248,6 @@ if (statusFooter) {
   });
 }
 
-// Store implementation and search functions
 interface CatalogAddon {
   name: string;
   title: string;
@@ -1267,13 +1266,12 @@ interface AddonVersion {
   id: number;
   displayName: string;
   fileName: string;
-  releaseType: number; // 1 = Release, 2 = Beta, 3 = Alpha
+  releaseType: number;
   downloadUrl: string;
   gameVersions: string[];
   sha1?: string | null;
 }
 
-// Map of key -> { addon: CatalogAddon, selectedVersion: AddonVersion }
 const selectedAddons = new Map<string, { addon: CatalogAddon; selectedVersion: AddonVersion }>();
 let currentActiveSite: 'curseforge' | 'mock' | 'github' = 'curseforge';
 let selectedDetailAddon: CatalogAddon | null = null;
@@ -1306,13 +1304,11 @@ function setupStoreEvents() {
   const storeSidebarTabs = document.querySelectorAll('.store-sidebar-tab');
   let debounceTimer: any = null;
 
-  // Modal Open/Close
   getAddonsBtn?.addEventListener('click', async () => {
     storeModal?.classList.remove('hidden');
     selectedAddons.clear();
     updateFooterState();
 
-    // Synchronously reset active tab and clear inputs/timers to avoid state leaks
     currentActiveSite = 'curseforge';
     if (storeSearchInput) {
       storeSearchInput.value = '';
@@ -1346,7 +1342,6 @@ function setupStoreEvents() {
     }
   });
 
-  // Search input clear button
   storeSearchInput?.addEventListener('input', () => {
     if (storeSearchInput.value.trim().length > 0) {
       storeSearchClearBtn?.classList.remove('hidden');
@@ -1363,7 +1358,6 @@ function setupStoreEvents() {
     }
   });
 
-  // Search input debounce
   storeSearchInput?.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
@@ -1371,7 +1365,6 @@ function setupStoreEvents() {
     }, 400);
   });
 
-  // Site selector tabs
   storeSidebarTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       const site = tab.getAttribute('data-site') as 'curseforge' | 'mock' | 'github';
@@ -1381,15 +1374,11 @@ function setupStoreEvents() {
     });
   });
 
-  // GitHub tag pills click listeners are bound dynamically inside renderGithubTagFilters()
-
-  // CurseForge category dropdown selector listener
   const cfSelectElement = document.getElementById('curseforgeCategorySelect');
   cfSelectElement?.addEventListener('change', () => {
     triggerSearch();
   });
 
-  // Review Modal Setup
   const confirmModal = document.getElementById('storeDownloadModal');
   const confirmCancel = document.getElementById('store-modal-cancel') as HTMLButtonElement | null;
   const confirmConfirm = document.getElementById('store-modal-confirm') as HTMLButtonElement | null;
@@ -1441,7 +1430,6 @@ function setupStoreEvents() {
     }
   });
 
-  // Sequential Downloading
   confirmConfirm?.addEventListener('click', async () => {
     const checkboxes = document.querySelectorAll(
       '.confirm-addon-checkbox'
@@ -1462,7 +1450,6 @@ function setupStoreEvents() {
 
     if (itemsToDownload.length === 0) return;
 
-    // Disable modal controls
     confirmConfirm.disabled = true;
     if (confirmCancel) confirmCancel.disabled = true;
 
@@ -1556,7 +1543,6 @@ function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
     storeSearchClearBtn?.classList.add('hidden');
   }
 
-  // Toggle github filters visibility
   const githubFilters = document.getElementById('githubTagFilters');
   if (githubFilters) {
     if (site === 'github') {
@@ -1566,7 +1552,6 @@ function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
     }
   }
 
-  // Toggle github warning banner visibility
   const githubWarning = document.getElementById('githubWarningBanner');
   if (githubWarning) {
     if (site === 'github') {
@@ -1576,7 +1561,6 @@ function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
     }
   }
 
-  // Toggle curseforge category filters visibility
   const cfFilters = document.getElementById('curseforgeCategoryFilters');
   const cfSelect = document.getElementById('curseforgeCategorySelect') as HTMLSelectElement | null;
   if (cfFilters) {
@@ -1590,7 +1574,6 @@ function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
     cfSelect.value = '';
   }
 
-  // Update tabs visual active state
   const tabs = document.querySelectorAll('.store-sidebar-tab');
   tabs.forEach((t) => {
     if (t.getAttribute('data-site') === site) {
@@ -1602,10 +1585,8 @@ function switchSiteTab(site: 'curseforge' | 'mock' | 'github') {
     }
   });
 
-  // Clear details pane
   clearDetailsPane();
 
-  // Trigger initial list render
   if (site === 'github') {
     searchGithub('');
   } else {
@@ -1670,7 +1651,6 @@ function renderStoreCatalog(addons: CatalogAddon[], _site: 'curseforge' | 'mock'
       </div>
     `;
 
-    // Handle check box click
     const checkbox = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
     checkbox.addEventListener('change', async () => {
       if (checkbox.checked) {
@@ -1688,7 +1668,6 @@ function renderStoreCatalog(addons: CatalogAddon[], _site: 'curseforge' | 'mock'
       }
     });
 
-    // Handle card select click
     card.addEventListener('click', () => {
       document
         .querySelectorAll('.store-addon-card')
@@ -2262,7 +2241,6 @@ function renderGithubTagFilters() {
     })
     .join('');
 
-  // Bind click listeners
   const pills = container.querySelectorAll('.github-tag-pill');
   pills.forEach((pill) => {
     pill.addEventListener('click', () => {
@@ -2389,7 +2367,7 @@ function setupSearchHoverBehavior() {
         if (input !== document.activeElement && input.value.trim().length === 0) {
           input.classList.remove('active');
         }
-      }, 3000); // 3 seconds delay
+      }, 3000);
     };
 
     container.addEventListener('mouseenter', showInput);
@@ -2407,7 +2385,6 @@ function setupSearchHoverBehavior() {
   });
 }
 
-// --- DEBUG CONSOLE LOGGER & SHORTCUT ---
 interface LogEntry {
   type: 'error' | 'warn' | 'log';
   message: string;
@@ -2482,7 +2459,6 @@ function toggleDebugConsole() {
   }
 }
 
-// Listen for update available event
 listen('update-available', () => {
   const updateAvailableBtn = document.getElementById('updateAvailableBtn');
   if (updateAvailableBtn) {
@@ -2499,7 +2475,6 @@ document.getElementById('updateAvailableBtn')?.addEventListener('click', async (
   }
 });
 
-// Setup Debug Console events when DOM is loaded
 function setupDebugConsoleEvents() {
   const closeBtn = document.getElementById('debugCloseBtn');
   const copyBtn = document.getElementById('debugCopyBtn');
@@ -2539,5 +2514,4 @@ function setupDebugConsoleEvents() {
   });
 }
 
-// Execute setup
 setupDebugConsoleEvents();

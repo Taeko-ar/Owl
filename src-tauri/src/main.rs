@@ -1264,11 +1264,11 @@ fn detect_game_version(base_path: String) -> String {
     let base_path_buf = std::path::PathBuf::from(&base_path);
     let data_dir = base_path_buf.join("Data");
     if data_dir.is_dir() {
-        // Check direct file
+        
         if data_dir.join("lichking.MPQ").exists() || data_dir.join("lichking.mpq").exists() {
             return "3.3.5a".to_string();
         }
-        // Check localized subdirectories
+        
         if let Ok(entries) = std::fs::read_dir(&data_dir) {
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
@@ -1301,10 +1301,10 @@ fn delete_addon(base_path: String, addon_name: String) -> std::result::Result<St
     Ok(format!("Deleted {}", addon_name))
 }
 
-// By using this key in your builds you accept the terms and conditions laid down in
-// https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions
-// NOTE: CurseForge requires you to change this if you make any kind of derivative work.
-// This key was issued specifically for Owl
+
+
+
+
 const CURSEFORGE_API_KEY: &str = "$2a$10$iY/ujXomVXZgD5J7Rl3PAuhnTzVTIFsqehxEsq5EMM2pRfxlezEHS";
 
 fn get_curseforge_base_url(is_mock: bool) -> &'static str {

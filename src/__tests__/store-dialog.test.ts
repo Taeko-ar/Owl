@@ -8,11 +8,9 @@ describe('Store Dialog', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Set up the DOM from index.html
     const html = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
     document.body.innerHTML = html;
 
-    // Default mock implementations
     mockInvoke.mockImplementation((cmd: any, args: any) => {
       if (cmd === 'load_settings') {
         return Promise.resolve({ path: 'C:\\wow', windowSize: '1280x720', stayOpen: false });
@@ -157,11 +155,10 @@ describe('Store Dialog', () => {
     getAddonsBtn.click();
     await new Promise((r) => setTimeout(r, 100));
 
-    // Clear invoke mocks
     mockInvoke.mockClear();
 
     const categorySelect = document.getElementById('curseforgeCategorySelect') as HTMLSelectElement;
-    categorySelect.value = '1067'; // Achievements
+    categorySelect.value = '1067';
     categorySelect.dispatchEvent(new Event('change'));
     await new Promise((r) => setTimeout(r, 100));
 
@@ -202,7 +199,6 @@ describe('Store Dialog', () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(storeModal.classList.contains('hidden')).toBe(false);
 
-    // Click backdrop
     storeModal.click();
     expect(storeModal.classList.contains('hidden')).toBe(true);
   });
@@ -238,14 +234,14 @@ describe('Store Dialog', () => {
     const searchInput = document.getElementById('storeSearchInput') as HTMLInputElement;
     searchInput.value = 'error';
     searchInput.dispatchEvent(new Event('input'));
-    // wait for 400ms debounce + fetch
+
     await new Promise((r) => setTimeout(r, 500));
 
     const storeList = document.getElementById('storeListContainer') as HTMLDivElement;
     expect(storeList.textContent).toContain('verify that a valid CurseForge API Key is configured');
   });
 
-  it.skip('toggles selection button state when "Select mod for download" is clicked', async () => {
+  it('toggles selection button state when "Select mod for download" is clicked', async () => {
     const getAddonsBtn = document.getElementById('getAddonsBtn') as HTMLButtonElement;
     getAddonsBtn.click();
     await new Promise((r) => setTimeout(r, 100));
@@ -257,12 +253,10 @@ describe('Store Dialog', () => {
     const selectBtn = document.getElementById('detailSelectBtn') as HTMLButtonElement;
     expect(selectBtn.textContent?.trim()).toBe('Download');
 
-    // Click select button
     selectBtn.click();
     await new Promise((r) => setTimeout(r, 100));
     expect(selectBtn.textContent?.trim()).toBe('Queued');
 
-    // Click deselect button
     selectBtn.click();
     await new Promise((r) => setTimeout(r, 100));
     expect(selectBtn.textContent?.trim()).toBe('Download');

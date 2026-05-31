@@ -1,11 +1,6 @@
 import { test as base } from '@playwright/test';
 import { TAURI_MOCK_SCRIPT } from './tauri-mock';
 
-/**
- * A fixture that sets up an addon-populated page by injecting mock data
- * BEFORE navigation via addInitScript. Use this when tests need the
- * installed addons list to be populated on load.
- */
 export const testWithAddons = base.extend<{ addonsPage: import('@playwright/test').Page }>({
   addonsPage: async ({ page }, use) => {
     await page.addInitScript(TAURI_MOCK_SCRIPT);
