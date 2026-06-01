@@ -5,9 +5,15 @@ export const testWithAddons = base.extend<{ addonsPage: import('@playwright/test
   addonsPage: async ({ page }, use) => {
     await page.addInitScript(TAURI_MOCK_SCRIPT);
     await page.addInitScript(() => {
-      (window as any).__OWL_MOCK_ADDONS__ = ['Questie', 'GTFO', 'AtlasLoot'];
-      (window as any).__OWL_INVOKE_OVERRIDES__ = {
-        parse_toc: async (args: any) => ({
+      (window as unknown as { __OWL_MOCK_ADDONS__: string[] }).__OWL_MOCK_ADDONS__ = [
+        'Questie',
+        'GTFO',
+        'AtlasLoot',
+      ];
+      (
+        window as unknown as { __OWL_INVOKE_OVERRIDES__: Record<string, unknown> }
+      ).__OWL_INVOKE_OVERRIDES__ = {
+        parse_toc: async (args: { addonName: string }) => ({
           name: args.addonName,
           title: args.addonName,
           author: 'TestAuthor',
