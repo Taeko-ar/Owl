@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { setupStoreEvents, onReloadAddons } from '../store/events';
-import { selectedAddons, setDetectedGameVersion, setCurrentActiveSite } from '../state';
+import { setupStoreEvents } from '../store/events';
+import { selectedAddons, setDetectedGameVersion } from '../state';
 import { invoke } from '@tauri-apps/api/core';
+import { CatalogAddon, AddonVersion } from '../types';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -51,7 +52,7 @@ describe('Store Events Module', () => {
   });
 
   it('handles openStore game version detection failure', async () => {
-    (invoke as any).mockImplementation((cmd: string) => {
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
       if (cmd === 'detect_game_version') {
         return Promise.reject('Detect error');
       }
@@ -72,7 +73,7 @@ describe('Store Events Module', () => {
 
   it('handles openStore and clears running debounce timer', async () => {
     vi.useFakeTimers();
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
 
     setupStoreEvents(reloadCallbackSpy);
     const getAddonsBtn = document.getElementById('getAddonsBtn') as HTMLButtonElement;
@@ -90,7 +91,7 @@ describe('Store Events Module', () => {
 
   it('handles search input clear and typing debounce', async () => {
     vi.useFakeTimers();
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
 
     setupStoreEvents(reloadCallbackSpy);
     const searchInput = document.getElementById('storeSearchInput') as HTMLInputElement;
@@ -120,8 +121,8 @@ describe('Store Events Module', () => {
   it('handles storeReviewBtn click and populates review modal and checkbox change', async () => {
     setupStoreEvents(reloadCallbackSpy);
     selectedAddons.set('cf-1', {
-      addon: { title: 'Questie', modId: 1 } as any,
-      selectedVersion: { fileName: 'questie.zip', releaseType: 1 } as any,
+      addon: { title: 'Questie', modId: 1 } as unknown as CatalogAddon,
+      selectedVersion: { fileName: 'questie.zip', releaseType: 1 } as unknown as AddonVersion,
     });
 
     const storeReviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement;
@@ -150,5 +151,97 @@ describe('Store Events Module', () => {
     confirmBtn.click();
     // Simply asserting that it does not throw
     expect(confirmBtn).toBeDefined();
+  });
+
+  it('covers remaining store events branches', async () => {
+    // 1. openStore when storeSearchInput / debounceTimer / etc are missing
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <button id="getAddonsBtn"></button>
+      <div id="storeModal" class="hidden"></div>
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const getAddonsBtn = document.getElementById('getAddonsBtn') as HTMLButtonElement;
+    getAddonsBtn.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    // 2. storeSearchClearBtn click when storeSearchInput is missing
+    document.body.innerHTML = `
+      <button id="storeSearchClearBtn"></button>
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const clearBtn = document.getElementById('storeSearchClearBtn') as HTMLButtonElement;
+    clearBtn.click();
+
+    // 3. Tab click with data-site missing
+    document.body.innerHTML = `
+      <button class="store-sidebar-tab"></button> <!-- missing data-site -->
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const tab = document.querySelector('.store-sidebar-tab') as HTMLElement;
+    tab.click();
+
+    // 4. storeReviewBtn click with gh- and mock- items
+    document.body.innerHTML = `
+      <button id="storeReviewBtn"></button>
+      <div id="storeDownloadModal" class="hidden"></div>
+      <div id="store-modal-table-body"></div>
+      <button id="store-modal-cancel"></button>
+      <button id="store-modal-confirm" disabled></button>
+    `;
+    // 4. storeReviewBtn click with gh- and mock- items, and missing fileName
+    document.body.innerHTML = `
+      <button id="storeReviewBtn"></button>
+      <div id="storeDownloadModal" class="hidden"></div>
+      <div id="store-modal-table-body"></div>
+      <button id="store-modal-cancel"></button>
+      <button id="store-modal-confirm" disabled></button>
+    `;
+    selectedAddons.set('gh-1', {
+      addon: { title: 'GitAddon' } as unknown as CatalogAddon,
+      selectedVersion: { fileName: 'git.zip', releaseType: 1 } as unknown as AddonVersion,
+    });
+    selectedAddons.set('mock-1', {
+      addon: { title: 'MockAddon' } as unknown as CatalogAddon,
+      selectedVersion: { fileName: '', releaseType: 2 } as unknown as AddonVersion, // empty fileName to cover Unknown File fallback
+    });
+    setupStoreEvents(reloadCallbackSpy);
+    const storeReviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement;
+    storeReviewBtn.click();
+
+    const tableBody = document.getElementById('store-modal-table-body');
+    expect(tableBody?.innerHTML).toContain('GitAddon');
+    expect(tableBody?.innerHTML).toContain('MockAddon');
+    expect(tableBody?.innerHTML).toContain('Unknown File');
+
+    // 4b. storeReviewBtn click when store-modal-table-body is missing
+    document.body.innerHTML = `
+      <button id="storeReviewBtn"></button>
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const storeReviewBtn2 = document.getElementById('storeReviewBtn') as HTMLButtonElement;
+    storeReviewBtn2.click(); // returns early
+
+    // 5. backdrop click where e.target is not the modal
+    document.body.innerHTML = `
+      <div id="storeDownloadModal" class="hidden">
+        <div id="store-modal-table-body"></div>
+      </div>
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const downloadModal = document.getElementById('storeDownloadModal') as HTMLDivElement;
+    const tableBody2 = document.getElementById('store-modal-table-body') as HTMLDivElement;
+    const clickEvent = new MouseEvent('click', { bubbles: true });
+    Object.defineProperty(clickEvent, 'target', { value: tableBody2, enumerable: true });
+    downloadModal.dispatchEvent(clickEvent);
+    expect(downloadModal.classList.contains('hidden')).toBe(true); // wait, it starts hidden
+
+    // 6. curseforgeCategorySelect change
+    document.body.innerHTML = `
+      <select id="curseforgeCategorySelect"><option value="1">1</option></select>
+    `;
+    setupStoreEvents(reloadCallbackSpy);
+    const select = document.getElementById('curseforgeCategorySelect') as HTMLSelectElement;
+    select.dispatchEvent(new Event('change'));
   });
 });

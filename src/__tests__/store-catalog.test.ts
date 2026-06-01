@@ -127,7 +127,6 @@ describe('Store Catalog Module', () => {
     expect(selectedAddons.has('cf-101')).toBe(false);
 
     // Click card to open details
-    const loadDetailsSpy = vi.fn();
     setSelectedDetailAddon(addons[0]);
     setSelectedDetailAddonKey('cf-101');
     card.click();
@@ -393,7 +392,6 @@ describe('Store Catalog Module', () => {
     };
     setCurrentActiveSite('github');
 
-    const oldFetch = globalThis.fetch;
     // 1. ok response
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -700,6 +698,55 @@ describe('Store Catalog Module', () => {
     selectBtn3.click();
     await Promise.resolve();
     expect(selectedAddons.has('cf-303')).toBe(true);
+
+    // Additional branches:
+    // a. 1.12.2 game version filtering
+    setDetectedGameVersion('1.12.1');
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_curseforge_mod_files') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 30303,
+              displayName: 'v1.2',
+              fileName: 'file.zip',
+              gameVersions: ['1.12.2'],
+            },
+          ],
+        });
+      }
+      return Promise.resolve();
+    });
+    await loadAddonDetails(mockCFAddon, 'cf-303');
+
+    // b. versionSelect change when selectedAddons doesn't have key but targetVersion is found
+    selectedAddons.delete('cf-303');
+    const selectChangeEl = document.getElementById('detailVersionSelect') as HTMLSelectElement;
+    if (selectChangeEl) {
+      selectChangeEl.value = 'https://edge.forgecdn.net/files/30/303/file.zip';
+      selectChangeEl.dispatchEvent(new Event('change'));
+    }
+
+    // c. versionSelect change when targetVersion is not found
+    selectedAddons.set('cf-303', { addon: mockCFAddon, selectedVersion: { id: 30301 } as any });
+    if (selectChangeEl) {
+      selectChangeEl.value = 'non-existent-url';
+      selectChangeEl.dispatchEvent(new Event('change'));
+    }
+
+    // d. selectBtn click when targetVersion is not found AND selectAddonForDownload does NOT add item (updatedItem is falsy)
+    selectedAddons.clear();
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_curseforge_mod_files') {
+        return Promise.resolve({ data: [] }); // return empty to prevent selection
+      }
+      return Promise.resolve();
+    });
+    await loadAddonDetails(mockCFAddon, 'cf-303');
+    const selectBtn4 = document.getElementById('detailSelectBtn') as HTMLElement;
+    selectBtn4.click();
+    await Promise.resolve();
+    expect(selectedAddons.has('cf-303')).toBe(false);
 
     // 7. renderStoreCatalog on GitHub site, and when selected details addon matches or partially mismatches
     document.body.innerHTML = `

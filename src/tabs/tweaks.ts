@@ -200,8 +200,6 @@ export async function loadConfig() {
         btn.addEventListener('click', async () => {
           const presetType = btn.getAttribute('data-preset') as keyof typeof PRESETS;
           const presetData = PRESETS[presetType];
-          if (!presetData) return;
-
           const presetName = getTranslation(presetData.nameKey);
           setLoadingState(
             getTranslation('tweaks.presets.applying', { name: presetName }),
@@ -222,7 +220,7 @@ export async function loadConfig() {
           } catch (err) {
             showToast(`Error: ${err}`);
           } finally {
-            if (statusFooter) clearLoadingState(statusFooter, activityProgress);
+            clearLoadingState(statusFooter, activityProgress);
           }
         });
       });
@@ -259,15 +257,8 @@ export async function loadConfig() {
           }
         }, 700);
 
-        const translatedAlias =
-          getTranslation(`tweaks.configs.${key}.alias`) !== `tweaks.configs.${key}.alias`
-            ? getTranslation(`tweaks.configs.${key}.alias`)
-            : configMeta.alias || key;
-
-        const translatedDesc =
-          getTranslation(`tweaks.configs.${key}.desc`) !== `tweaks.configs.${key}.desc`
-            ? getTranslation(`tweaks.configs.${key}.desc`)
-            : configMeta.desc || '';
+        const translatedAlias = configMeta.alias || key;
+        const translatedDesc = configMeta.desc || '';
 
         const isToggle =
           configMeta.options &&

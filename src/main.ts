@@ -31,7 +31,7 @@ function updateNavButtonsForTab(tabName: string | null) {
 
 const navTabs = document.querySelectorAll('.nav-tab');
 const tabContents = document.querySelectorAll('.tab-content');
-const playBtn = document.getElementById('playBtn') as HTMLButtonElement;
+const playBtn = document.getElementById('playBtn') as HTMLButtonElement | null;
 const minimizeBtn = document.getElementById('minimizeBtn') as HTMLButtonElement | null;
 const windowCloseBtn = document.getElementById('windowCloseBtn') as HTMLButtonElement | null;
 const gamePath = document.getElementById('gamePath') as HTMLInputElement;
@@ -95,7 +95,7 @@ windowCloseBtn?.addEventListener('click', async () => {
 });
 
 playBtn?.addEventListener('click', async () => {
-  playBtn!.disabled = true;
+  if (playBtn) playBtn.disabled = true;
   setLoadingState(getTranslation('status.launching'), 20, statusFooter, activityProgress);
 
   try {
@@ -112,7 +112,7 @@ playBtn?.addEventListener('click', async () => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     statusFooter.textContent = `Error: ${errorMessage}`;
   } finally {
-    playBtn!.disabled = false;
+    if (playBtn) playBtn.disabled = false;
     setTimeout(clearLoadingState, 1200);
   }
 });

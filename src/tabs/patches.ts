@@ -55,7 +55,7 @@ export async function loadPatches(
       })
       .join('');
 
-    document.querySelectorAll('.patch-toggle').forEach((chk) => {
+    patchesList.querySelectorAll('.patch-toggle').forEach((chk) => {
       chk.addEventListener('change', async (e) => {
         const checkbox = e.target as HTMLInputElement;
         const patch = checkbox.getAttribute('data-patch');
@@ -75,7 +75,7 @@ export async function loadPatches(
       });
     });
 
-    document.querySelectorAll('.delete-patch').forEach((btn) => {
+    patchesList.querySelectorAll('.delete-patch').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const normalActions = btn.parentElement;
@@ -87,22 +87,23 @@ export async function loadPatches(
       });
     });
 
-    document.querySelectorAll('.confirm-actions .cancel-delete').forEach((btn) => {
+    patchesList.querySelectorAll('.confirm-actions .cancel-delete').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const confirmActions = btn.parentElement;
         const normalActions = confirmActions?.previousElementSibling;
-        if (normalActions && confirmActions) {
+        if (confirmActions && normalActions) {
           confirmActions.classList.add('hidden');
           normalActions.classList.remove('hidden');
         }
       });
     });
 
-    document.querySelectorAll('.confirm-actions .confirm-delete').forEach((btn) => {
+    patchesList.querySelectorAll('.confirm-actions .confirm-delete').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const patch = (e.currentTarget as HTMLButtonElement).getAttribute('data-patch') || '';
+        const patch = (e.currentTarget as HTMLButtonElement).getAttribute('data-patch');
+        if (!patch) return;
         try {
           await invoke('delete_patch', { basePath: gamePathValue, patchName: patch });
           await loadAddonsAndPatches();

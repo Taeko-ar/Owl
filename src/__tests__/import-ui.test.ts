@@ -177,7 +177,6 @@ describe('Import UI Modal', () => {
 
     const overlay = document.querySelector('.fixed.inset-0') as HTMLElement;
     const githubBtn = overlay.querySelector('#importGithubBtn') as HTMLElement;
-    const fileBtn = overlay.querySelector('#importFileBtn') as HTMLElement;
 
     // 1. Test Github Import click when statusFooter is missing (success)
     (showTextInputModal as any).mockImplementationOnce(() =>

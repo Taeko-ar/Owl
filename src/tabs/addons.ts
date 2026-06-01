@@ -141,7 +141,7 @@ export async function loadAddonsAndPatches() {
             });
             showAddonModal(meta);
           } catch (err) {
-            if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+            statusFooter.textContent = `Error: ${err}`;
           }
         });
       });
@@ -149,11 +149,12 @@ export async function loadAddonsAndPatches() {
       document.querySelectorAll('.open-addon').forEach((btn) => {
         btn.addEventListener('click', async (e) => {
           const addon = (e.currentTarget as HTMLButtonElement).getAttribute('data-addon');
+          if (!addon) return;
           try {
             await invoke('open_addon_folder', { basePath: gamePath.value, addonName: addon });
-            if (statusFooter) statusFooter.textContent = `Opened folder: ${addon}`;
+            statusFooter.textContent = `Opened folder: ${addon}`;
           } catch (err) {
-            if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+            statusFooter.textContent = `Error: ${err}`;
           }
         });
       });
@@ -163,6 +164,7 @@ export async function loadAddonsAndPatches() {
           e.stopPropagation();
           const checkbox = e.target as HTMLInputElement;
           const addon = checkbox.getAttribute('data-addon');
+          if (!addon) return;
           const enable = checkbox.checked;
           try {
             const res = await invoke<string>('toggle_addon', {
@@ -170,11 +172,11 @@ export async function loadAddonsAndPatches() {
               addonName: addon,
               enable,
             });
-            if (statusFooter) statusFooter.textContent = res;
+            statusFooter.textContent = res;
             showToast('Changes saved!');
             await loadAddonsAndPatches();
           } catch (err) {
-            if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+            statusFooter.textContent = `Error: ${err}`;
           }
         });
       });
@@ -196,7 +198,7 @@ export async function loadAddonsAndPatches() {
           e.stopPropagation();
           const confirmActions = btn.parentElement;
           const normalActions = confirmActions?.previousElementSibling;
-          if (normalActions && confirmActions) {
+          if (confirmActions && normalActions) {
             confirmActions.classList.add('hidden');
             normalActions.classList.remove('hidden');
           }
@@ -206,13 +208,14 @@ export async function loadAddonsAndPatches() {
       document.querySelectorAll('.confirm-actions .confirm-delete').forEach((btn) => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          const addon = (e.currentTarget as HTMLButtonElement).getAttribute('data-addon') || '';
+          const addon = (e.currentTarget as HTMLButtonElement).getAttribute('data-addon');
+          if (!addon) return;
           try {
             await invoke('delete_addon', { basePath: gamePath.value, addonName: addon });
             await loadAddonsAndPatches();
-            if (statusFooter) statusFooter.textContent = `Deleted addon: ${addon}`;
+            statusFooter.textContent = `Deleted addon: ${addon}`;
           } catch (err) {
-            if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+            statusFooter.textContent = `Error: ${err}`;
           }
         });
       });
@@ -220,13 +223,13 @@ export async function loadAddonsAndPatches() {
       document.querySelectorAll('.addon-git-branch-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const dropdown = btn.nextElementSibling as HTMLElement | null;
-          if (dropdown) {
-            document.querySelectorAll('.addon-branch-dropdown').forEach((d) => {
-              if (d !== dropdown) d.classList.add('hidden');
-            });
-            dropdown.classList.toggle('hidden');
-          }
+          const dropdown = btn.nextElementSibling as HTMLElement;
+          document.querySelectorAll('.addon-branch-dropdown').forEach((d) => {
+            if (d !== dropdown) {
+              d.classList.add('hidden');
+            }
+          });
+          dropdown.classList.toggle('hidden');
         });
       });
 
@@ -241,23 +244,19 @@ export async function loadAddonsAndPatches() {
           const container = document.querySelector(
             `.addon-git-status[data-addon="${meta.name}"]`
           ) as HTMLElement;
-          if (container) {
-            await checkSingleAddonGitStatus(
-              meta.name,
-              container,
-              gamePath.value,
-              statusFooter,
-              false
-            );
-          }
+          await checkSingleAddonGitStatus(
+            meta.name,
+            container,
+            gamePath.value,
+            statusFooter,
+            false
+          );
         }
       })();
     } else {
-      const exportBtn = document.getElementById('exportAddonsBtn') as HTMLButtonElement | null;
-      if (exportBtn) {
-        exportBtn.setAttribute('disabled', 'true');
-        exportBtn.setAttribute('title', getTranslation('import.emptyTooltip'));
-      }
+      const exportBtn = document.getElementById('exportAddonsBtn') as HTMLButtonElement;
+      exportBtn.setAttribute('disabled', 'true');
+      exportBtn.setAttribute('title', getTranslation('import.emptyTooltip'));
       addonEmpty.classList.remove('hidden');
       addonEmpty.style.display = 'flex';
       addonEmpty.classList.add('flex', 'flex-1', 'items-center', 'justify-center');
@@ -268,7 +267,7 @@ export async function loadAddonsAndPatches() {
 
     await loadPatches(patches, gamePath.value, statusFooter);
   } catch (error) {
-    if (statusFooter) statusFooter.textContent = `Error loading files: ${error}`;
+    statusFooter.textContent = `Error loading files: ${error}`;
   } finally {
     clearLoadingState(statusFooter, activityProgress);
     const addonsSearch = document.getElementById('addons-search') as HTMLInputElement | null;

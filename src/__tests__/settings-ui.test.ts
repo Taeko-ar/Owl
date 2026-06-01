@@ -8,7 +8,6 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { getSettingsBackup, setSettingsBackup } from '../state';
 import { loadAddonsAndPatches } from '../main';
-import { getTranslation } from '../i18n';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

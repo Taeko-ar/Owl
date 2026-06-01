@@ -37,9 +37,9 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
   function restoreSettingsBackup() {
     const backup = getSettingsBackup();
     if (!backup) return;
-    gamePath!.value = backup.path;
+    if (gamePath) gamePath.value = backup.path;
     if (windowSizeSelect) windowSizeSelect.value = backup.windowSize;
-    stayOpen!.checked = backup.stayOpen;
+    if (stayOpen) stayOpen.checked = backup.stayOpen;
   }
 
   const closeSettingsModal = () => {

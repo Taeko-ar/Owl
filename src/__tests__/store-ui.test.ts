@@ -15,6 +15,7 @@ import {
   setDetectedGameVersion,
 } from '../state';
 import { invoke } from '@tauri-apps/api/core';
+import { CatalogAddon, AddonVersion } from '../types';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -67,7 +68,7 @@ describe('Store UI Module', () => {
     input.value = 'Questie';
 
     // CurseForge site
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
     triggerSearch();
     expect(invoke).toHaveBeenCalled();
 
@@ -80,7 +81,7 @@ describe('Store UI Module', () => {
 
   it('switchSiteTab toggles correct UI classes and filters', async () => {
     mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ items: [] }) });
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
 
     switchSiteTab('github');
     expect(getCurrentActiveSite()).toBe('github');
@@ -100,17 +101,17 @@ describe('Store UI Module', () => {
     const list = document.getElementById('storeListContainer') as HTMLDivElement;
 
     // Error scenario
-    (invoke as any).mockRejectedValue('Forbidden 403 error');
+    vi.mocked(invoke).mockRejectedValue('Forbidden 403 error');
     await searchCurseForge('err');
     expect(list.innerHTML).toContain('Access denied by CurseForge');
 
     // Success with empty mods
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
     await searchCurseForge('');
     expect(document.getElementById('storeListEmpty')?.classList.contains('hidden')).toBe(false);
 
     // Success with items
-    (invoke as any).mockResolvedValue({
+    vi.mocked(invoke).mockResolvedValue({
       data: [{ id: 101, name: 'Questie', summary: 'Quest helper', logo: { thumbnailUrl: 'url' } }],
     });
     await searchCurseForge('quest');
@@ -176,7 +177,7 @@ describe('Store UI Module', () => {
 
   it('updateFooterState and updateConfirmButtonState update button disabled properties', () => {
     // updateFooterState
-    selectedAddons.set('cf-1', {} as any);
+    selectedAddons.set('cf-1', { addon: {} as CatalogAddon, selectedVersion: {} as AddonVersion });
     updateFooterState();
     expect(document.getElementById('storeSelectedCount')?.textContent).toBe('1');
     expect((document.getElementById('storeReviewBtn') as HTMLButtonElement).disabled).toBe(false);
@@ -225,17 +226,17 @@ describe('Store UI Module', () => {
       <div id="storeListContainer"></div>
     `;
     // response.data is undefined
-    (invoke as any).mockResolvedValueOnce({});
+    vi.mocked(invoke).mockResolvedValueOnce({});
     await searchCurseForge('');
 
     // mod has no summary, logo, authors, links
-    (invoke as any).mockResolvedValueOnce({
+    vi.mocked(invoke).mockResolvedValueOnce({
       data: [{ id: 102, name: 'ModNoProps' }],
     });
     await searchCurseForge('');
 
     // non-403 error for CurseForge friendly message
-    (invoke as any).mockRejectedValueOnce('Some standard connection error');
+    vi.mocked(invoke).mockRejectedValueOnce('Some standard connection error');
     await searchCurseForge('');
     expect(document.getElementById('storeListContainer')?.innerHTML).toContain(
       'Failed to query CurseForge'

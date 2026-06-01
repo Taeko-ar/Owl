@@ -1,6 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { loadSavedSettings } from './../ui/settings';
 import { loadAddonsAndPatches } from './../tabs/addons';
 import { loadConfig } from './../tabs/tweaks';

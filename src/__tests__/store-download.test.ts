@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { selectAddonForDownload, installSelectedAddons } from '../store/download';
 import { selectedAddons, setCurrentActiveSite, setDetectedGameVersion } from '../state';
 import { invoke } from '@tauri-apps/api/core';
+import { CatalogAddon, AddonVersion } from '../types';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -33,7 +34,7 @@ describe('Store Download Module', () => {
   });
 
   it('selectAddonForDownload handles CurseForge download selection and no compatible versions', async () => {
-    const mockAddon: any = { modId: 101, title: 'Questie', name: 'Questie' };
+    const mockAddon = { modId: 101, title: 'Questie', name: 'Questie' } as unknown as CatalogAddon;
 
     document.body.innerHTML += `
       <div class="store-addon-card" data-key="cf-101">
@@ -42,14 +43,14 @@ describe('Store Download Module', () => {
     `;
 
     // Case 1: no compatible version
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
     await selectAddonForDownload('cf-101', mockAddon);
     expect(selectedAddons.has('cf-101')).toBe(false);
     const cb = document.querySelector('.store-addon-checkbox') as HTMLInputElement;
     expect(cb.checked).toBe(false);
 
     // Case 2: compatible version found
-    (invoke as any).mockResolvedValue({
+    vi.mocked(invoke).mockResolvedValue({
       data: [
         {
           id: 10101,
@@ -66,11 +67,15 @@ describe('Store Download Module', () => {
   });
 
   it('selectAddonForDownload supports classic game versions and github active site', async () => {
-    const mockAddon: any = { modId: 102, title: 'QuestieClassic', name: 'QuestieClassic' };
+    const mockAddon = {
+      modId: 102,
+      title: 'QuestieClassic',
+      name: 'QuestieClassic',
+    } as unknown as CatalogAddon;
     setCurrentActiveSite('github');
     setDetectedGameVersion('1.12.1');
 
-    (invoke as any).mockResolvedValue([
+    vi.mocked(invoke).mockResolvedValue([
       {
         id: 10201,
         displayName: 'v1.0-classic',
@@ -86,11 +91,15 @@ describe('Store Download Module', () => {
 
   it('installSelectedAddons loops through checked items and calls Tauri invoke', async () => {
     vi.useFakeTimers();
-    const mockAddon: any = { modId: 101, title: 'Questie', name: 'Questie' };
-    const mockVersion: any = { id: 10101, downloadUrl: 'http://dl.com/questie.zip', sha1: 'sha1' };
+    const mockAddon = { modId: 101, title: 'Questie', name: 'Questie' } as unknown as CatalogAddon;
+    const mockVersion = {
+      id: 10101,
+      downloadUrl: 'http://dl.com/questie.zip',
+      sha1: 'sha1',
+    } as unknown as AddonVersion;
     selectedAddons.set('cf-101', { addon: mockAddon, selectedVersion: mockVersion });
 
-    (invoke as any).mockResolvedValue('Success');
+    vi.mocked(invoke).mockResolvedValue('Success');
 
     await installSelectedAddons();
     vi.runAllTimers();
@@ -105,11 +114,14 @@ describe('Store Download Module', () => {
   });
 
   it('installSelectedAddons handles invoke failures gracefully', async () => {
-    const mockAddon: any = { modId: 101, title: 'Questie', name: 'Questie' };
-    const mockVersion: any = { id: 10101, downloadUrl: 'http://dl.com/questie.zip' };
+    const mockAddon = { modId: 101, title: 'Questie', name: 'Questie' } as unknown as CatalogAddon;
+    const mockVersion = {
+      id: 10101,
+      downloadUrl: 'http://dl.com/questie.zip',
+    } as unknown as AddonVersion;
     selectedAddons.set('cf-101', { addon: mockAddon, selectedVersion: mockVersion });
 
-    (invoke as any).mockRejectedValue('Download error');
+    vi.mocked(invoke).mockRejectedValue('Download error');
 
     await installSelectedAddons();
     const statusCell = document.querySelector('.store-status-cell');
@@ -117,10 +129,14 @@ describe('Store Download Module', () => {
   });
 
   it('selectAddonForDownload filters CurseForge files for Classic game version and fallback hashes', async () => {
-    const mockAddon: any = { modId: 105, title: 'QuestieClassicCF', name: 'QuestieClassicCF' };
+    const mockAddon = {
+      modId: 105,
+      title: 'QuestieClassicCF',
+      name: 'QuestieClassicCF',
+    } as unknown as CatalogAddon;
     setDetectedGameVersion('1.12.1');
 
-    (invoke as any).mockResolvedValue({
+    vi.mocked(invoke).mockResolvedValue({
       data: [
         {
           id: 10501,
@@ -139,8 +155,8 @@ describe('Store Download Module', () => {
   });
 
   it('selectAddonForDownload handles fetching errors gracefully', async () => {
-    const mockAddon: any = { modId: 101, title: 'Questie' };
-    (invoke as any).mockRejectedValue('Network Timeout');
+    const mockAddon = { modId: 101, title: 'Questie' } as unknown as CatalogAddon;
+    vi.mocked(invoke).mockRejectedValue('Network Timeout');
 
     document.body.innerHTML += `
       <div class="store-addon-card" data-key="cf-101">
@@ -155,8 +171,8 @@ describe('Store Download Module', () => {
   });
 
   it('selectAddonForDownload handles specificVersion branches and missing card/checkbox elements', async () => {
-    const mockAddon: any = { modId: 101, title: 'Questie' };
-    const version: any = { id: 10101, downloadUrl: 'url' };
+    const mockAddon = { modId: 101, title: 'Questie' } as unknown as CatalogAddon;
+    const version = { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion;
 
     // 1. specificVersion branch with card present but checkbox missing
     document.body.innerHTML = `
@@ -173,26 +189,26 @@ describe('Store Download Module', () => {
 
     // 3. no compatible version branch with no card in DOM
     selectedAddons.clear();
-    (invoke as any).mockResolvedValue({ data: [] });
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
     await selectAddonForDownload('cf-101', mockAddon);
     expect(selectedAddons.has('cf-101')).toBe(false);
 
     // 4. fetch error branch with no card in DOM
-    (invoke as any).mockRejectedValue('Network error');
+    vi.mocked(invoke).mockRejectedValue('Network error');
     await selectAddonForDownload('cf-101', mockAddon);
     expect(selectedAddons.has('cf-101')).toBe(false);
   });
 
   it('selectAddonForDownload handles CurseForge download selection with empty response data and 3.4.x / invalid game versions', async () => {
-    const mockAddon: any = { modId: 101, title: 'Questie' };
+    const mockAddon = { modId: 101, title: 'Questie' } as unknown as CatalogAddon;
 
     // response.data is undefined
-    (invoke as any).mockResolvedValue({});
+    vi.mocked(invoke).mockResolvedValue({});
     await selectAddonForDownload('cf-101', mockAddon);
     expect(selectedAddons.has('cf-101')).toBe(false);
 
     // match gameVersions with 3.4.x and check fallback display name
-    (invoke as any).mockResolvedValue({
+    vi.mocked(invoke).mockResolvedValue({
       data: [
         {
           id: 10102,
@@ -221,12 +237,16 @@ describe('Store Download Module', () => {
       <div id="status">Ready</div>
       <button id="store-modal-confirm"></button>
       <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-102" />
     `;
-    const mockAddon: any = { modId: null, title: 'Questie' };
-    const mockVersion: any = { id: 'abc', downloadUrl: 'http://dl.com/questie.zip' }; // non-parseable version id, missing sha1
+    const mockAddon = { modId: undefined, title: 'Questie' } as unknown as CatalogAddon;
+    const mockVersion = {
+      id: 'abc',
+      downloadUrl: 'http://dl.com/questie.zip',
+    } as unknown as AddonVersion; // non-parseable version id, missing sha1
     selectedAddons.set('cf-101', { addon: mockAddon, selectedVersion: mockVersion });
 
-    (invoke as any).mockResolvedValue('Success');
+    vi.mocked(invoke).mockResolvedValue('Success');
 
     await installSelectedAddons();
     vi.runAllTimers();
@@ -238,5 +258,99 @@ describe('Store Download Module', () => {
       fileId: null, // should fall back to null on 'abc'
     });
     vi.useRealTimers();
+  });
+
+  it('covers remaining download branches', async () => {
+    // 1. gameVersions filter for Classic cover 1.12.2 and cover filter out when missing gameVersions / hasDlUrl false
+    setDetectedGameVersion('1.12.1');
+    const mockAddon = { modId: 101, title: 'Questie' } as unknown as CatalogAddon;
+
+    vi.mocked(invoke).mockResolvedValue({
+      data: [
+        {
+          id: 10101,
+          displayName: 'v1.12.2',
+          fileName: 'questie.zip',
+          downloadUrl: 'http://dl.com/questie.zip',
+          gameVersions: ['1.12.2'],
+        },
+        {
+          id: 10102,
+          displayName: 'missing-game-versions',
+          fileName: 'questie.zip',
+          downloadUrl: 'http://dl.com/questie.zip',
+          // missing gameVersions
+        },
+        {
+          id: 10103,
+          displayName: 'missing-dlurl-and-filename',
+          gameVersions: ['1.12.1'],
+          // missing downloadUrl and fileName
+        },
+      ],
+    });
+
+    await selectAddonForDownload('cf-101', mockAddon);
+    expect(selectedAddons.has('cf-101')).toBe(true);
+    expect(selectedAddons.get('cf-101')?.selectedVersion.id).toBe(10101);
+
+    // 2. card present but checkbox missing (select success, select no version, select error)
+    document.body.innerHTML = `
+      <div class="store-addon-card" data-key="cf-101"></div> <!-- card present, no cb -->
+    `;
+    selectedAddons.clear();
+    vi.mocked(invoke).mockResolvedValue({
+      data: [
+        {
+          id: 10101,
+          fileName: 'questie.zip',
+          downloadUrl: 'http://dl.com/questie.zip',
+          gameVersions: ['1.12.2'],
+        },
+      ],
+    });
+    await selectAddonForDownload('cf-101', mockAddon);
+    expect(selectedAddons.has('cf-101')).toBe(true);
+
+    // no compatible version, card present, no cb
+    selectedAddons.clear();
+    vi.mocked(invoke).mockResolvedValue({ data: [] });
+    await selectAddonForDownload('cf-101', mockAddon);
+    expect(selectedAddons.has('cf-101')).toBe(false);
+
+    // error path, card present, no cb
+    vi.mocked(invoke).mockRejectedValue('Some error');
+    await selectAddonForDownload('cf-101', mockAddon);
+    expect(selectedAddons.has('cf-101')).toBe(false);
+
+    // 3. installSelectedAddons: checked checkbox with data-key but not in selectedAddons
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <div id="status">Ready</div>
+      <button id="store-modal-confirm"></button>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+    `;
+    selectedAddons.clear();
+    const res = await installSelectedAddons();
+    expect(res).toBeUndefined();
+
+    // 4. installSelectedAddons: download fails but statusCell is missing
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <div id="status">Ready</div>
+      <button id="store-modal-confirm"></button>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <table>
+        <tr data-key="cf-101">
+          <!-- no status-cell -->
+        </tr>
+      </table>
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(invoke).mockRejectedValue('Download error');
+    await installSelectedAddons();
   });
 });
