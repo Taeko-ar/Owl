@@ -19,7 +19,7 @@
     "automation:headed": "npx playwright test --headed",
     "automation:report": "npx playwright show-report",
     "automation:ui": "npx playwright test --ui",
-    "check-i18n": "tsx scripts/check-translations.ts"
+    "check-i18n": "tsx src/i18n/check-translations.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

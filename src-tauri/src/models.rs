@@ -36,12 +36,25 @@ pub struct AddonMeta {
     pub has_git: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AddonProfile {
+    pub name: String,
+    pub enabled_addons: Vec<String>,
+    pub tweak_configs: Option<std::collections::HashMap<String, String>>,
+    pub enabled_patches: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherSettings {
     pub path: Option<String>,
     pub window_size: Option<String>,
     pub stay_open: Option<bool>,
+    pub active_profile_by_path: Option<std::collections::HashMap<String, String>>,
+    pub addon_profiles_by_path: Option<std::collections::HashMap<String, Vec<AddonProfile>>>,
+    pub addon_profiles: Option<Vec<AddonProfile>>,
+    pub active_profile: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ExportedAddon {

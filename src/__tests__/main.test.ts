@@ -50,6 +50,7 @@ vi.mock('./../ui/git-status', () => ({
 
 vi.mock('./../tabs/addons', () => ({
   loadAddonsAndPatches: vi.fn().mockImplementation(() => Promise.resolve()),
+  setupAddonProfileEvents: vi.fn(),
 }));
 
 vi.mock('./../tabs/tweaks', () => ({

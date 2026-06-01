@@ -22,7 +22,68 @@ export const TAURI_MOCK_SCRIPT = `
 
     switch (cmd) {
       case 'load_settings':
-        return { path: 'C:\\\\wow', windowSize: '1280x720', stayOpen: true };
+        return window.__OWL_MOCK_SETTINGS__ || {
+          path: 'C:\\\\wow',
+          windowSize: '1280x720',
+          stayOpen: true,
+          addonProfiles: window.__OWL_MOCK_PROFILES__ || [],
+          activeProfile: window.__OWL_MOCK_ACTIVE_PROFILE__ || null,
+        };
+
+      case 'get_addon_profiles':
+        return window.__OWL_MOCK_PROFILES__ || [];
+
+      case 'save_addon_profile': {
+        const name = args?.name;
+        const enabledAddons = args?.enabledAddons || [];
+        if (!window.__OWL_MOCK_PROFILES__) {
+          window.__OWL_MOCK_PROFILES__ = [];
+        }
+        const index = window.__OWL_MOCK_PROFILES__.findIndex((p) => p.name === name);
+        if (index !== -1) {
+          window.__OWL_MOCK_PROFILES__[index].enabledAddons = enabledAddons;
+        } else {
+          window.__OWL_MOCK_PROFILES__.push({ name, enabledAddons });
+        }
+        window.__OWL_MOCK_ACTIVE_PROFILE__ = name;
+        return 'OK';
+      }
+
+      case 'apply_addon_profile': {
+        const name = args?.name;
+        if (name === 'All Addons') {
+          window.__OWL_MOCK_ACTIVE_PROFILE__ = null;
+        } else {
+          window.__OWL_MOCK_ACTIVE_PROFILE__ = name;
+        }
+        return 'OK';
+      }
+
+      case 'delete_addon_profile': {
+        const name = args?.name;
+        if (window.__OWL_MOCK_PROFILES__) {
+          window.__OWL_MOCK_PROFILES__ = window.__OWL_MOCK_PROFILES__.filter((p) => p.name !== name);
+        }
+        if (window.__OWL_MOCK_ACTIVE_PROFILE__ === name) {
+          window.__OWL_MOCK_ACTIVE_PROFILE__ = null;
+        }
+        return 'OK';
+      }
+
+      case 'rename_addon_profile': {
+        const oldName = args?.oldName;
+        const newName = args?.newName;
+        if (window.__OWL_MOCK_PROFILES__) {
+          const profile = window.__OWL_MOCK_PROFILES__.find((p) => p.name === oldName);
+          if (profile) {
+            profile.name = newName;
+          }
+        }
+        if (window.__OWL_MOCK_ACTIVE_PROFILE__ === oldName) {
+          window.__OWL_MOCK_ACTIVE_PROFILE__ = newName;
+        }
+        return 'OK';
+      }
 
       case 'get_addons':
         return window.__OWL_MOCK_ADDONS__ || [];

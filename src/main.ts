@@ -9,7 +9,7 @@ import { setupMainSearchEvents, setupSearchHoverBehavior } from './ui/search';
 import { setupImportModalEvents } from './ui/import';
 import { setupImportExportEvents } from './ui/import-export';
 import { setupGitStatusEvents } from './ui/git-status';
-import { loadAddonsAndPatches } from './tabs/addons';
+import { loadAddonsAndPatches, setupAddonProfileEvents } from './tabs/addons';
 import { loadConfig } from './tabs/tweaks';
 import { setupDebugConsoleEvents } from './ui/debug-console';
 import { Prefs } from './prefs';
@@ -21,6 +21,7 @@ export {
   setAppLanguage,
   setupSearchHoverBehavior,
   loadAddonsAndPatches,
+  setupAddonProfileEvents,
 };
 
 function updateNavButtonsForTab(tabName: string | null) {
@@ -174,6 +175,7 @@ if (statusFooter) {
     setupStoreEvents(loadAddonsAndPatches);
     setupMainSearchEvents();
     setupSearchHoverBehavior();
+    setupAddonProfileEvents();
     loadAddonsAndPatches();
     const activeTab = document.querySelector('.nav-tab.active');
     const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'addons';

@@ -19,10 +19,19 @@ export interface AddonGitStatus {
   branches?: string[];
 }
 
+export interface AddonProfile {
+  name: string;
+  enabledAddons: string[];
+  tweakConfigs?: Record<string, string>;
+  enabledPatches?: string[];
+}
+
 export interface LauncherSettings {
   path?: string;
   windowSize?: string;
   stayOpen?: boolean;
+  addonProfiles?: AddonProfile[];
+  activeProfile?: string;
 }
 
 export interface CatalogAddon {
