@@ -324,9 +324,21 @@ export function setupAddonProfileEvents() {
   )
     return;
 
-  profileSelectorBtn.addEventListener('click', (e) => {
+  profileSelectorBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
-    profileDropdown.classList.toggle('hidden');
+    const settings = await invoke<LauncherSettings | null>('load_settings').catch(() => null);
+    const profiles = settings?.addonProfiles || [];
+    if (profiles.length === 0) {
+      activeModalAction = 'save';
+      if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
+      profileModalInput.value = '';
+      profileModalError.classList.add('hidden');
+      profileModal.classList.remove('hidden');
+      profileDropdown.classList.add('hidden');
+      profileModalInput.focus();
+    } else {
+      profileDropdown.classList.toggle('hidden');
+    }
   });
 
   document.addEventListener('click', () => {
@@ -336,9 +348,22 @@ export function setupAddonProfileEvents() {
     e.stopPropagation();
   });
 
+  profileModal.addEventListener('click', (e) => {
+    if (e.target === profileModal) {
+      profileModal.classList.add('hidden');
+    }
+  });
+
+  profileModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmProfileModal?.click();
+    }
+  });
+
   saveProfileBtn?.addEventListener('click', () => {
     activeModalAction = 'save';
-    profileModalTitle.textContent = getTranslation('addons.profileSave');
+    if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
     profileModalInput.value = '';
     profileModalError.classList.add('hidden');
     profileModal.classList.remove('hidden');
@@ -491,15 +516,32 @@ async function updateProfileDropdown(
     }
   }
 
+  const activeProfileHeaderNameMods = document.getElementById('activeProfileHeaderNameMods');
+  const activeProfileHeaderContainerMods = document.getElementById(
+    'activeProfileHeaderContainerMods'
+  );
+
   if (activeProfileHeaderName) {
     if (activeProfile) {
       activeProfileHeaderName.textContent = `${activeProfile}${isModified ? ' (modified)' : ''}`;
       activeProfileHeaderName.classList.add('text-sky-400');
       activeProfileHeaderContainer?.classList.remove('hidden');
     } else {
-      activeProfileHeaderName.textContent = getTranslation('addons.profileAll');
+      activeProfileHeaderName.textContent = getTranslation('addons.profileSave');
       activeProfileHeaderName.classList.remove('text-sky-400');
       activeProfileHeaderContainer?.classList.remove('hidden');
+    }
+  }
+
+  if (activeProfileHeaderNameMods) {
+    if (activeProfile) {
+      activeProfileHeaderNameMods.textContent = `${activeProfile}${isModified ? ' (modified)' : ''}`;
+      activeProfileHeaderNameMods.classList.add('text-sky-400');
+      activeProfileHeaderContainerMods?.classList.remove('hidden');
+    } else {
+      activeProfileHeaderNameMods.textContent = getTranslation('addons.profileSave');
+      activeProfileHeaderNameMods.classList.remove('text-sky-400');
+      activeProfileHeaderContainerMods?.classList.remove('hidden');
     }
   }
 
@@ -509,14 +551,7 @@ async function updateProfileDropdown(
     updateProfileBtn?.classList.add('hidden');
   }
 
-  let html = `
-    <button
-      class="profile-option w-full text-left px-4 py-2 hover:bg-slate-800 text-xs transition-colors duration-150 block cursor-pointer outline-none ${!activeProfile ? 'text-sky-400 font-semibold bg-slate-800/40' : 'text-slate-100'}"
-      data-profile="All Addons"
-    >
-      ${getTranslation('addons.profileAll')}
-    </button>
-  `;
+  let html = '';
 
   for (const prof of profiles) {
     const isActive = prof.name === activeProfile;
@@ -559,22 +594,6 @@ async function updateProfileDropdown(
   }
 
   profileList.innerHTML = html;
-
-  // Apply profile (All Addons)
-  profileList.querySelector('.profile-option')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const gamePath = document.getElementById('gamePath') as HTMLInputElement;
-    const statusFooter = document.getElementById('status') as HTMLElement;
-    try {
-      await invoke('apply_addon_profile', { basePath: gamePath.value, name: 'All Addons' });
-      statusFooter.textContent = `Applied profile: All Addons`;
-      showToast('Profile applied!');
-      document.getElementById('profileDropdown')?.classList.add('hidden');
-      await loadAddonsAndPatches();
-    } catch (err) {
-      statusFooter.textContent = `Error: ${err}`;
-    }
-  });
 
   // Wiring custom profile rows
   profileList.querySelectorAll('.profile-item-row').forEach((row) => {

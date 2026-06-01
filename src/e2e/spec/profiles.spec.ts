@@ -15,14 +15,10 @@ test.describe('Addon Profiles', () => {
     // 1. Dropdown is hidden initially
     await expect(profiles.dropdown).toBeHidden();
 
-    // 2. Open dropdown
+    // 2. Open dropdown/modal
+    // Since there are no profiles, clicking selectorBtn directly triggers the save profile modal.
     await profiles.selectorBtn.click();
-    await expect(profiles.dropdown).toBeVisible();
-
-    // 3. Click Save Profile
-    await profiles.saveBtn.click();
     await expect(profiles.modal).toBeVisible();
-    await expect(profiles.modalTitle).toHaveText('Save Setup as Profile...');
 
     // 4. Fill modal input and confirm
     await profiles.modalInput.fill('My Special Profile');
@@ -92,8 +88,8 @@ test.describe('Addon Profiles', () => {
     await expect(deleteBtn).toBeVisible();
     await deleteBtn.click();
 
-    // Add init script to mock delete response
-    await profiles.page.addInitScript(() => {
+    // Clear mock profiles directly in context
+    await profiles.page.evaluate(() => {
       // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_PROFILES__ = [];
       // @ts-expect-error: Mock tauri variable
@@ -105,9 +101,9 @@ test.describe('Addon Profiles', () => {
     await expect(confirmDeleteBtn).toBeVisible();
     await confirmDeleteBtn.click();
 
-    // Option should be gone, header back to All Addons
+    // Option should be gone, header back to Save Setup as Profile...
     await expect(profiles.profileOption('Casual WoW')).toBeHidden();
-    await expect(profiles.headerName).toContainText('All Addons');
+    await expect(profiles.headerName).toContainText('Save Setup as Profile...');
   });
 
   test.skip('can save multiple profiles with different addon states and switch between them', async () => {

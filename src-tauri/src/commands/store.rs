@@ -157,16 +157,27 @@ pub async fn download_and_extract_addon(
         }
 
         if has_toc || sub_dirs.is_empty() {
-            let target_name = Path::new(&url)
+            let mut target_name = Path::new(&url)
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .unwrap_or("addon");
-            let target_dir = addons_dir.join(target_name);
+                .unwrap_or("addon")
+                .to_string();
+            if url.contains("github.com") {
+                if let Ok((_, repo, _)) = crate::github::parse_github_repo_url(&url) {
+                    target_name = repo;
+                } else if let Some(idx) = target_name.rfind('-') {
+                    let suffix = &target_name[idx + 1..];
+                    if suffix == "main" || suffix == "master" || suffix == "dev" || suffix.chars().all(|c| c.is_ascii_hexdigit()) {
+                        target_name = target_name[..idx].to_string();
+                    }
+                }
+            }
+            let target_dir = addons_dir.join(&target_name);
             if target_dir.exists() {
                 fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
             }
             copy_dir_recursive(&extract_dir, &target_dir)?;
-            imported.push(target_name.to_string());
+            imported.push(target_name);
         } else {
             for sub_dir in sub_dirs {
                 if let Some(sub_dir_name) = sub_dir.file_name().and_then(|n| n.to_str()) {
@@ -180,16 +191,31 @@ pub async fn download_and_extract_addon(
             }
         }
     } else {
-        let target_name = source_path
+        let mut target_name = source_path
             .file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("addon");
-        let target_dir = addons_dir.join(target_name);
+            .unwrap_or("addon")
+            .to_string();
+        if url.contains("github.com") {
+            if let Ok((_, repo, _)) = crate::github::parse_github_repo_url(&url) {
+                let repo_lower = repo.to_lowercase();
+                let target_lower = target_name.to_lowercase();
+                if target_lower.starts_with(&format!("{}-", repo_lower)) {
+                    target_name = repo;
+                }
+            } else if let Some(idx) = target_name.rfind('-') {
+                let suffix = &target_name[idx + 1..];
+                if suffix == "main" || suffix == "master" || suffix == "dev" || suffix.chars().all(|c| c.is_ascii_hexdigit()) {
+                    target_name = target_name[..idx].to_string();
+                }
+            }
+        }
+        let target_dir = addons_dir.join(&target_name);
         if target_dir.exists() {
             fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
         }
         copy_dir_recursive(&source_path, &target_dir)?;
-        imported.push(target_name.to_string());
+        imported.push(target_name);
     }
 
     if let (Some(m_id), Some(f_id)) = (mod_id, file_id) {

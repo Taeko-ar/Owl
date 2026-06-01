@@ -107,7 +107,7 @@ export function showToast(msg: string, timeout = 1800) {
   const d = document.createElement('div');
   d.id = id;
   d.className =
-    'toast fixed top-4 right-4 z-50 rounded bg-slate-700 text-slate-100 px-3 py-2 shadow';
+    'toast fixed top-4 left-4 z-50 rounded bg-slate-700 text-slate-100 px-3 py-2 shadow';
   d.textContent = msg;
   document.body.appendChild(d);
   setTimeout(() => {

@@ -65,30 +65,95 @@ pub fn load_settings() -> std::result::Result<LauncherSettings, String> {
 }
 
 #[tauri::command]
-pub fn save_settings(mut settings: LauncherSettings) -> std::result::Result<String, String> {
-    if let Some(ref path) = settings.path {
+pub fn save_settings(settings: LauncherSettings) -> std::result::Result<String, String> {
+    let mut current_settings = load_settings().unwrap_or_else(|_| LauncherSettings {
+        path: None,
+        window_size: None,
+        stay_open: Some(true),
+        active_profile_by_path: None,
+        addon_profiles_by_path: None,
+        addon_profiles: None,
+        active_profile: None,
+    });
+
+    let old_path = current_settings.path.clone();
+    let new_path = settings.path.clone();
+
+    current_settings.path = settings.path;
+    if settings.window_size.is_some() {
+        current_settings.window_size = settings.window_size;
+    }
+    if settings.stay_open.is_some() {
+        current_settings.stay_open = settings.stay_open;
+    }
+
+    let mut profiles_map = current_settings.addon_profiles_by_path.clone().unwrap_or_default();
+    let mut active_map = current_settings.active_profile_by_path.clone().unwrap_or_default();
+
+    // Migration of profiles if game folder path changed
+    if let (Some(ref old_p), Some(ref new_p)) = (&old_path, &new_path) {
+        if old_p != new_p {
+            let old_canonical = fs::canonicalize(old_p)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| old_p.clone());
+            let new_canonical = fs::canonicalize(new_p)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| new_p.clone());
+
+            if old_canonical != new_canonical {
+                if let Some(old_profs) = profiles_map.get(&old_canonical).cloned() {
+                    if !profiles_map.contains_key(&new_canonical) {
+                        profiles_map.insert(new_canonical.clone(), old_profs);
+                    }
+                }
+                if let Some(old_act) = active_map.get(&old_canonical).cloned() {
+                    if !active_map.contains_key(&new_canonical) {
+                        active_map.insert(new_canonical.clone(), old_act);
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(ref path) = current_settings.path {
         if let Ok(canonical) = fs::canonicalize(path) {
             let canonical_str = canonical.to_string_lossy().to_string();
 
-            let mut profiles_map = settings.addon_profiles_by_path.clone().unwrap_or_default();
             if let Some(ref profs) = settings.addon_profiles {
                 profiles_map.insert(canonical_str.clone(), profs.clone());
             }
-            settings.addon_profiles_by_path = Some(profiles_map);
-
-            let mut active_map = settings.active_profile_by_path.clone().unwrap_or_default();
             if let Some(ref active) = settings.active_profile {
-                active_map.insert(canonical_str, active.clone());
-            } else {
+                active_map.insert(canonical_str.clone(), active.clone());
+            } else if settings.active_profile.is_some() {
                 active_map.remove(&canonical_str);
             }
-            settings.active_profile_by_path = Some(active_map);
+        }
+    }
+
+    current_settings.addon_profiles_by_path = Some(profiles_map);
+    current_settings.active_profile_by_path = Some(active_map);
+
+    // Also populate addon_profiles and active_profile for the current path
+    if let Some(ref path) = current_settings.path {
+        if let Ok(canonical) = fs::canonicalize(path) {
+            let canonical_str = canonical.to_string_lossy().to_string();
+            current_settings.addon_profiles = current_settings
+                .addon_profiles_by_path
+                .as_ref()
+                .and_then(|m| m.get(&canonical_str).cloned());
+            current_settings.active_profile = current_settings
+                .active_profile_by_path
+                .as_ref()
+                .and_then(|m| m.get(&canonical_str).cloned());
         }
     }
 
     let settings_file_path = get_settings_file_path()?;
-    fs::write(&settings_file_path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    fs::write(
+        &settings_file_path,
+        serde_json::to_string_pretty(&current_settings).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     Ok("OK".into())
 }
 

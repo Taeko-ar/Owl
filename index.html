@@ -190,17 +190,17 @@
           </button>
           <button
             class="nav-tab border-b-2 border-transparent py-3 font-medium text-slate-400 hover:text-slate-200"
-            data-tab="tweaks"
-            data-i18n="tabs.tweaks"
-          >
-            Tweaks
-          </button>
-          <button
-            class="nav-tab border-b-2 border-transparent py-3 font-medium text-slate-400 hover:text-slate-200"
             data-tab="mods"
             data-i18n="tabs.mods"
           >
             Mods
+          </button>
+          <button
+            class="nav-tab border-b-2 border-transparent py-3 font-medium text-slate-400 hover:text-slate-200"
+            data-tab="tweaks"
+            data-i18n="tabs.tweaks"
+          >
+            Tweaks
           </button>
         </div>
         <div class="flex items-center gap-2">
@@ -329,12 +329,26 @@
             class="rounded-lg border border-slate-800 bg-slate-900 p-6 flex flex-col h-full min-h-0"
           >
             <div class="flex justify-between items-center mb-4 flex-shrink-0 pr-3">
-              <h3
-                class="text-sm font-bold uppercase tracking-wider text-slate-400"
-                data-i18n="patches.installed"
-              >
-                Installed Patches
-              </h3>
+              <div class="flex items-center gap-2 min-w-0">
+                <h3
+                  class="text-sm font-bold uppercase tracking-wider text-slate-400 flex-shrink-0"
+                  data-i18n="patches.installed"
+                >
+                  Installed Patches
+                </h3>
+                <div
+                  id="activeProfileHeaderContainerMods"
+                  class="flex items-center gap-2 text-xs ml-2 min-w-0"
+                >
+                  <span id="activeProfileHeaderPrefixMods" class="text-slate-400 font-semibold"
+                    >—</span
+                  >
+                  <span
+                    id="activeProfileHeaderNameMods"
+                    class="text-slate-400 font-semibold truncate"
+                  ></span>
+                </div>
+              </div>
               <div class="flex items-center gap-2">
                 <div class="search-container relative flex items-center">
                   <svg
@@ -1177,14 +1191,10 @@
     </div>
     <div
       id="profileModal"
-      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
     >
       <div class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-96 shadow-2xl">
-        <div class="flex items-center justify-between mb-4">
-          <h2 id="profileModalTitle" class="text-lg font-semibold text-slate-100">
-            Save Setup as Profile
-          </h2>
-        </div>
+        <div id="profileModalTitle" class="hidden"></div>
 
         <div class="space-y-4">
           <div>
