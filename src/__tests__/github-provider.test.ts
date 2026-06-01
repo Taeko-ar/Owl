@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-const mockInvoke = (globalThis as any).mockInvoke;
+const mockInvoke = (globalThis as unknown as { mockInvoke: Mock }).mockInvoke;
 
 const mockFetch = vi.fn();
 
@@ -12,7 +12,7 @@ describe('GitHub Addon Provider', () => {
     vi.clearAllMocks();
     mockFetch.mockReset();
 
-    mockInvoke.mockImplementation((cmd: any) => {
+    mockInvoke.mockImplementation((cmd: string) => {
       if (cmd === 'load_settings') {
         return Promise.resolve({ path: 'C:\\wow', windowSize: '1280x720', stayOpen: false });
       }

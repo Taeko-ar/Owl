@@ -5,10 +5,10 @@ vi.mock('@tauri-apps/api/event', () => ({
 }));
 
 const mockInvoke = vi.fn();
-(globalThis as any).mockInvoke = mockInvoke;
+(globalThis as unknown as { mockInvoke: typeof mockInvoke }).mockInvoke = mockInvoke;
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn().mockImplementation((cmd, args) => {
-    return (globalThis as any).mockInvoke(cmd, args);
+  invoke: vi.fn().mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+    return (globalThis as unknown as { mockInvoke: typeof mockInvoke }).mockInvoke(cmd, args);
   }),
 }));

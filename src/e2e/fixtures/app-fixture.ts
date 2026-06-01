@@ -22,7 +22,9 @@ export const test = base.extend<{
     const setter = async (cmd: string, response: unknown) => {
       await page.evaluate(
         ({ cmd, response }) => {
-          (window as any).__OWL_INVOKE_OVERRIDES__[cmd] = () => Promise.resolve(response);
+          (
+            window as unknown as { __OWL_INVOKE_OVERRIDES__: Record<string, unknown> }
+          ).__OWL_INVOKE_OVERRIDES__[cmd] = () => Promise.resolve(response);
         },
         { cmd, response }
       );
@@ -33,7 +35,7 @@ export const test = base.extend<{
   setMockAddons: async ({ page }, use) => {
     const setter = async (addons: string[]) => {
       await page.evaluate((addons) => {
-        (window as any).__OWL_MOCK_ADDONS__ = addons;
+        (window as unknown as { __OWL_MOCK_ADDONS__: string[] }).__OWL_MOCK_ADDONS__ = addons;
       }, addons);
     };
     await use(setter);
@@ -42,7 +44,7 @@ export const test = base.extend<{
   setMockPatches: async ({ page }, use) => {
     const setter = async (patches: string[]) => {
       await page.evaluate((patches) => {
-        (window as any).__OWL_MOCK_PATCHES__ = patches;
+        (window as unknown as { __OWL_MOCK_PATCHES__: string[] }).__OWL_MOCK_PATCHES__ = patches;
       }, patches);
     };
     await use(setter);

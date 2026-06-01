@@ -5,3 +5,4 @@ src-tauri/icons/icon.ico
 coverage/
 playwright-report/
 test-results/
+scripts/

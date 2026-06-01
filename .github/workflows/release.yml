@@ -2,7 +2,7 @@ name: Release Build
 
 on:
   workflow_run:
-    workflows: ["Test/Linter"]
+    workflows: ['Test/Linter']
     types:
       - completed
     branches:

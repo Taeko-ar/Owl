@@ -1,15 +1,14 @@
+import { knownConfigs, getConfigMetadata } from '../config/known-configs';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   debounce,
   escapeHtml,
   formatWithColorCodes,
-  getConfigMetadata,
   renderMarkdown,
   setLoadingState,
   clearLoadingState,
   showTextInputModal,
   showToast,
-  knownConfigs,
   parsePatchFilename,
 } from '../utils';
 

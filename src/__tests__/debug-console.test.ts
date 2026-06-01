@@ -95,8 +95,8 @@ describe('Debug Console', () => {
     });
     window.dispatchEvent(errorEvent);
 
-    const rejectionEvent = new Event('unhandledrejection') as any;
-    rejectionEvent.reason = 'Rejected promise test';
+    const rejectionEvent = new Event('unhandledrejection');
+    Object.defineProperty(rejectionEvent, 'reason', { value: 'Rejected promise test' });
     window.dispatchEvent(rejectionEvent);
 
     const logsHtml = logsContainer.innerHTML;

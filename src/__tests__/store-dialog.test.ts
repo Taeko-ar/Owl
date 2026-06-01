@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-const mockInvoke = (globalThis as any).mockInvoke;
+const mockInvoke = (globalThis as unknown as { mockInvoke: Mock }).mockInvoke;
 
 describe('Store Dialog', () => {
   beforeEach(async () => {
@@ -11,7 +11,7 @@ describe('Store Dialog', () => {
     const html = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
     document.body.innerHTML = html;
 
-    mockInvoke.mockImplementation((cmd: any, args: any) => {
+    mockInvoke.mockImplementation((cmd: string, args?: { query?: string }) => {
       if (cmd === 'load_settings') {
         return Promise.resolve({ path: 'C:\\wow', windowSize: '1280x720', stayOpen: false });
       }

@@ -7,5 +7,5 @@ declare module '@tauri-apps/api/dialog' {
     title?: string;
   }
   export function open(opts?: OpenOptions): Promise<string | string[] | null>;
-  export function save(opts?: any): Promise<string | null>;
+  export function save(opts?: unknown): Promise<string | null>;
 }

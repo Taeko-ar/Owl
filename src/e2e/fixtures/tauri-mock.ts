@@ -22,7 +22,7 @@ export const TAURI_MOCK_SCRIPT = `
 
     switch (cmd) {
       case 'load_settings':
-        return { path: 'C:\\\\wow', windowSize: '1280x720', stayOpen: false };
+        return { path: 'C:\\\\wow', windowSize: '1280x720', stayOpen: true };
 
       case 'get_addons':
         return window.__OWL_MOCK_ADDONS__ || [];
