@@ -11,6 +11,7 @@ import { setupGitStatusEvents } from './ui/git-status';
 import { loadAddonsAndPatches } from './tabs/addons';
 import { loadConfig } from './tabs/tweaks';
 import { setupDebugConsoleEvents } from './ui/debug-console';
+import { Prefs } from './prefs';
 
 export {
   translations,
@@ -20,6 +21,16 @@ export {
   setupSearchHoverBehavior,
   loadAddonsAndPatches,
 };
+
+function updateNavButtonsForTab(tabName: string | null) {
+  const importBtn = document.getElementById('importAddonBtn');
+  const openModsBtn = document.getElementById('openModsFolder');
+  const getAddonsBtn = document.getElementById('getAddonsBtn');
+  if (!importBtn || !openModsBtn) return;
+  importBtn.classList.toggle('hidden', tabName !== 'addons');
+  getAddonsBtn?.classList.toggle('hidden', tabName !== 'addons');
+  openModsBtn.classList.toggle('hidden', tabName !== 'mods');
+}
 
 const navTabs = document.querySelectorAll('.nav-tab');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -45,24 +56,7 @@ navTabs.forEach((tab) => {
     tab.classList.add('active', 'border-slate-400', 'text-slate-100');
     tab.classList.remove('border-transparent', 'text-slate-400');
 
-    const importBtn = document.getElementById('importAddonBtn');
-    const openModsBtn = document.getElementById('openModsFolder');
-    const getAddonsBtn = document.getElementById('getAddonsBtn');
-    if (importBtn && openModsBtn) {
-      if (tabName === 'addons') {
-        importBtn.classList.remove('hidden');
-        getAddonsBtn?.classList.remove('hidden');
-        openModsBtn.classList.add('hidden');
-      } else if (tabName === 'mods') {
-        importBtn.classList.add('hidden');
-        getAddonsBtn?.classList.add('hidden');
-        openModsBtn.classList.remove('hidden');
-      } else {
-        importBtn.classList.add('hidden');
-        getAddonsBtn?.classList.add('hidden');
-        openModsBtn.classList.add('hidden');
-      }
-    }
+    updateNavButtonsForTab(tabName);
 
     tabContents.forEach(async (content) => {
       if (content.id === `${tabName}-tab`) {
@@ -138,12 +132,12 @@ openModsBtn?.addEventListener('click', async () => {
 setupImportModalEvents();
 
 const themeToggleBtn = document.getElementById('themeToggleBtn');
-if (localStorage.getItem('theme') === 'light') {
+if (Prefs.getTheme() === 'light') {
   document.body.classList.add('light-mode');
 }
 themeToggleBtn?.addEventListener('click', () => {
   const isLight = document.body.classList.toggle('light-mode');
-  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  Prefs.setTheme(isLight ? 'light' : 'dark');
 });
 
 langBtn?.addEventListener('click', (e) => {
@@ -185,24 +179,7 @@ if (statusFooter) {
     loadAddonsAndPatches();
     const activeTab = document.querySelector('.nav-tab.active');
     const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'addons';
-    const importBtn = document.getElementById('importAddonBtn');
-    const openModsBtn = document.getElementById('openModsFolder');
-    const getAddonsBtn = document.getElementById('getAddonsBtn');
-    if (importBtn && openModsBtn && tabName) {
-      if (tabName === 'addons') {
-        importBtn.classList.remove('hidden');
-        getAddonsBtn?.classList.remove('hidden');
-        openModsBtn.classList.add('hidden');
-      } else if (tabName === 'mods') {
-        importBtn.classList.add('hidden');
-        getAddonsBtn?.classList.add('hidden');
-        openModsBtn.classList.remove('hidden');
-      } else {
-        importBtn.classList.add('hidden');
-        getAddonsBtn?.classList.add('hidden');
-        openModsBtn.classList.add('hidden');
-      }
-    }
+    updateNavButtonsForTab(tabName);
   });
 }
 

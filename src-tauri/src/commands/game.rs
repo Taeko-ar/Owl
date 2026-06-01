@@ -3,6 +3,7 @@ use std::os::windows::process::CommandExt;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use crate::fs_utils::CREATE_NO_WINDOW;
 
 #[tauri::command]
 pub fn launch_game(base_path: String, _stay_open: bool) -> std::result::Result<String, String> {
@@ -51,7 +52,6 @@ pub fn launch_game(base_path: String, _stay_open: bool) -> std::result::Result<S
 
     #[cfg(target_os = "windows")]
     {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
         Command::new(base.join(&exe))
             .creation_flags(CREATE_NO_WINDOW)
             .current_dir(&base)

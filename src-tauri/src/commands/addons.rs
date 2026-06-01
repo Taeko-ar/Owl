@@ -5,6 +5,7 @@ use crate::models::*;
 use crate::git::*;
 use crate::archive::*;
 use crate::github::*;
+use crate::fs_utils::owl_http_client;
 
 #[tauri::command]
 pub fn get_addons(base_path: String) -> std::result::Result<Vec<String>, String> {
@@ -119,7 +120,6 @@ pub async fn check_addon_git_status(base_path: String, addon_name: String) -> st
 }
 
 #[tauri::command]
-#[allow(dead_code)]
 pub async fn change_addon_branch(base_path: String, addon_name: String, branch_name: String) -> std::result::Result<String, String> {
     if !is_valid_branch_name(&branch_name) {
         return Err("Invalid branch name".into());
@@ -155,10 +155,7 @@ pub async fn update_addon(base_path: String, addon_name: String) -> std::result:
             if let Ok(content) = fs::read_to_string(&meta_path) {
                 if let Ok(owl_meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
                     let (owner, repo, _) = parse_github_repo_url(&owl_meta.remote_url)?;
-                    let client = reqwest::Client::builder()
-                        .user_agent("OWL-Launcher")
-                        .build()
-                        .map_err(|e| e.to_string())?;
+                    let client = owl_http_client()?;
 
                     let zip_url = format!(
                         "https://github.com/{}/{}/archive/refs/heads/{}.zip",
@@ -266,9 +263,6 @@ pub fn toggle_addon(base_path: String, addon_name: String, enable: bool) -> std:
             return Ok("Already disabled".into());
         }
         if enabled_path.exists() {
-            if disabled_path.exists() {
-                return Err("Disabled target already exists".into());
-            }
             fs::rename(&enabled_path, &disabled_path).map_err(|e| e.to_string())?;
             return Ok("Disabled".into());
         }

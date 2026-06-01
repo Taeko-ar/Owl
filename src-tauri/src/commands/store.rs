@@ -12,10 +12,7 @@ pub async fn search_curseforge_addons(
     game_version: String,
     is_mock: bool,
 ) -> std::result::Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("OWL-Launcher")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = owl_http_client()?;
 
     let base_url = get_curseforge_base_url(is_mock);
     let url = if is_mock {
@@ -53,10 +50,7 @@ pub async fn search_curseforge_addons(
 
 #[tauri::command]
 pub async fn get_curseforge_mod_files(mod_id: i32, is_mock: bool) -> std::result::Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("OWL-Launcher")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = owl_http_client()?;
 
     let base_url = get_curseforge_base_url(is_mock);
     let url = format!("{}/v1/mods/{}/files", base_url, mod_id);
@@ -78,10 +72,7 @@ pub async fn get_curseforge_mod_files(mod_id: i32, is_mock: bool) -> std::result
 
 #[tauri::command]
 pub async fn get_curseforge_mod_description(mod_id: i32, is_mock: bool) -> std::result::Result<String, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("OWL-Launcher")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = owl_http_client()?;
 
     let base_url = get_curseforge_base_url(is_mock);
     let url = format!("{}/v1/mods/{}/description", base_url, mod_id);
@@ -109,10 +100,7 @@ pub async fn download_and_extract_addon(base_path: String, url: String, sha1: Op
         fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
     }
 
-    let client = reqwest::Client::builder()
-        .user_agent("OWL-Launcher")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = owl_http_client()?;
 
     let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() {

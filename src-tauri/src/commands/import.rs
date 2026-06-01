@@ -27,7 +27,6 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
     check_cmd.arg("--version");
     #[cfg(target_os = "windows")]
     {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
         check_cmd.creation_flags(CREATE_NO_WINDOW);
     }
     let git_installed = check_cmd.output().map(|o| o.status.success()).unwrap_or(false);
@@ -46,7 +45,6 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
 
         #[cfg(target_os = "windows")]
         {
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
@@ -57,10 +55,7 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
 
         Ok(format!("Imported addon {} from GitHub", repo))
     } else {
-        let client = reqwest::Client::builder()
-            .user_agent("OWL-Launcher")
-            .build()
-            .map_err(|e| e.to_string())?;
+        let client = owl_http_client()?;
 
         let branch_name = branch.unwrap_or_else(|| "main".to_string());
         let zip_url = format!(

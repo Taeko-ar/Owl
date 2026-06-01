@@ -50,3 +50,12 @@ pub fn get_settings_file_path() -> std::result::Result<PathBuf, String> {
     Ok(config_dir)
 }
 
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub fn owl_http_client() -> std::result::Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent("OWL-Launcher")
+        .build()
+        .map_err(|e| e.to_string())
+}
+

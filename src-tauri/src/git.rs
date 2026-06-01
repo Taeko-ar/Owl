@@ -5,6 +5,7 @@ use std::os::windows::process::CommandExt;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use crate::fs_utils::{CREATE_NO_WINDOW, owl_http_client};
 pub fn is_valid_branch_name(branch: &str) -> bool {
     if branch.is_empty() || branch.starts_with('-') || branch.contains("..") {
         return false;
@@ -18,7 +19,6 @@ pub fn run_git_command(path: &Path, args: &[&str]) -> std::result::Result<String
 
     #[cfg(target_os = "windows")]
     {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
@@ -118,10 +118,7 @@ pub async fn get_addon_git_status(addon_path: &Path) -> Option<AddonGitStatus> {
 }
 
 pub async fn fetch_latest_commit_sha(owner: &str, repo: &str, branch: &str) -> std::result::Result<String, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("OWL-Launcher")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = owl_http_client()?;
     let url = format!("https://api.github.com/repos/{}/{}/commits/{}", owner, repo, branch);
     let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
