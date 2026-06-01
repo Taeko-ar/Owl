@@ -120,8 +120,19 @@
               class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800 flex items-center justify-center cursor-pointer outline-none"
               title="Select Profile"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-slate-300 pointer-events-none">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.8"
+                stroke="currentColor"
+                class="w-4 h-4 text-slate-300 pointer-events-none"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                />
               </svg>
             </button>
             <div
@@ -221,9 +232,15 @@
                 >
                   Installed Addons
                 </h3>
-                <div id="activeProfileHeaderContainer" class="flex items-center gap-2 text-xs ml-2 min-w-0">
+                <div
+                  id="activeProfileHeaderContainer"
+                  class="flex items-center gap-2 text-xs ml-2 min-w-0"
+                >
                   <span id="activeProfileHeaderPrefix" class="text-slate-400 font-semibold">—</span>
-                  <span id="activeProfileHeaderName" class="text-slate-400 font-semibold truncate"></span>
+                  <span
+                    id="activeProfileHeaderName"
+                    class="text-slate-400 font-semibold truncate"
+                  ></span>
                 </div>
               </div>
               <div class="flex items-center gap-2">
@@ -1162,16 +1179,20 @@
       id="profileModal"
       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     >
-      <div
-        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-96 shadow-2xl"
-      >
+      <div class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-96 shadow-2xl">
         <div class="flex items-center justify-between mb-4">
-          <h2 id="profileModalTitle" class="text-lg font-semibold text-slate-100">Save Setup as Profile</h2>
+          <h2 id="profileModalTitle" class="text-lg font-semibold text-slate-100">
+            Save Setup as Profile
+          </h2>
         </div>
 
         <div class="space-y-4">
           <div>
-            <label id="profileModalLabel" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Profile Name</label>
+            <label
+              id="profileModalLabel"
+              class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+              >Profile Name</label
+            >
             <input
               id="profileModalInput"
               type="text"

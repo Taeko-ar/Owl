@@ -36,11 +36,9 @@ test.describe('Addon Profiles', () => {
   test('can rename and delete profiles inline inside the dropdown', async () => {
     // Inject mock profile using addInitScript so it survives page reloads
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
-      window.__OWL_MOCK_PROFILES__ = [
-        { name: 'Raiding', enabledAddons: ['GTFO'] }
-      ];
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
+      window.__OWL_MOCK_PROFILES__ = [{ name: 'Raiding', enabledAddons: ['GTFO'] }];
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Raiding';
     });
 
@@ -69,11 +67,9 @@ test.describe('Addon Profiles', () => {
 
     // Add init script to mock rename response for future settings calls
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
-      window.__OWL_MOCK_PROFILES__ = [
-        { name: 'Casual WoW', enabledAddons: ['GTFO'] }
-      ];
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
+      window.__OWL_MOCK_PROFILES__ = [{ name: 'Casual WoW', enabledAddons: ['GTFO'] }];
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Casual WoW';
     });
 
@@ -98,9 +94,9 @@ test.describe('Addon Profiles', () => {
 
     // Add init script to mock delete response
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_PROFILES__ = [];
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = null;
     });
 
@@ -117,7 +113,7 @@ test.describe('Addon Profiles', () => {
   test.skip('can save multiple profiles with different addon states and switch between them', async () => {
     // 1. Mock some addons using addInitScript so it survives page reloads
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ADDONS__ = ['GTFO', 'AtlasLoot', 'DBM'];
     });
     await profiles.page.reload();
@@ -138,11 +134,9 @@ test.describe('Addon Profiles', () => {
 
     // Mock save_addon_profile to record 'Profile A'
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
-      window.__OWL_MOCK_PROFILES__ = [
-        { name: 'Profile A', enabledAddons: ['GTFO'] }
-      ];
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
+      window.__OWL_MOCK_PROFILES__ = [{ name: 'Profile A', enabledAddons: ['GTFO'] }];
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile A';
     });
     await profiles.modalConfirm.click();
@@ -159,12 +153,12 @@ test.describe('Addon Profiles', () => {
 
     // Mock save_addon_profile to record both Profile A and Profile B
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_PROFILES__ = [
         { name: 'Profile A', enabledAddons: ['GTFO'] },
-        { name: 'Profile B', enabledAddons: ['GTFO', 'AtlasLoot', 'DBM'] }
+        { name: 'Profile B', enabledAddons: ['GTFO', 'AtlasLoot', 'DBM'] },
       ];
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile B';
     });
     await profiles.modalConfirm.click();
@@ -174,9 +168,9 @@ test.describe('Addon Profiles', () => {
     await profiles.selectorBtn.click();
     // Mock apply response
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile A';
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ADDONS__ = ['GTFO', 'AtlasLoot-disabled', 'DBM-disabled'];
     });
     await profiles.profileOption('Profile A').click();
@@ -191,9 +185,9 @@ test.describe('Addon Profiles', () => {
     await profiles.selectorBtn.click();
     // Mock apply response
     await profiles.page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile B';
-      // @ts-ignore
+      // @ts-expect-error: Mock tauri variable
       window.__OWL_MOCK_ADDONS__ = ['GTFO', 'AtlasLoot', 'DBM'];
     });
     await profiles.profileOption('Profile B').click();
