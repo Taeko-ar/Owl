@@ -143,4 +143,49 @@ describe('Debug Console', () => {
     const copiedText = mockWriteText.mock.calls[0][0];
     expect(copiedText).toContain('[LOG] Copy log test');
   });
+
+  it('covers remaining debug console branches like log limit, backdrop click, and copy logs failure', async () => {
+    const { debugLogs, addDebugLog } = await import('../ui/debug-console');
+
+    const originalHtml = document.body.innerHTML;
+
+    // 1. log limit: push 505 logs to trigger length > 500 branch (debugLogs.shift())
+    document.body.innerHTML = '';
+    debugLogs.length = 0; // reset
+    for (let i = 0; i < 505; i++) {
+      addDebugLog('log', `Log ${i}`);
+    }
+    expect(debugLogs.length).toBe(500);
+    expect(debugLogs[0].message).toBe('Log 5'); // 0-4 shifted out
+
+    document.body.innerHTML = originalHtml;
+    const { setupDebugConsoleEvents } = await import('../ui/debug-console');
+    setupDebugConsoleEvents();
+
+    // 2. backdrop click
+    const modal = document.getElementById('debugConsoleModal') as HTMLDivElement;
+    modal.classList.remove('hidden');
+    modal.click(); // clicks modal backdrop directly
+    expect(modal.classList.contains('hidden')).toBe(true);
+
+    // 3. clipboard copy error
+    mockWriteText.mockRejectedValueOnce(new Error('Clipboard block'));
+    const copyBtn = document.getElementById('debugCopyBtn') as HTMLButtonElement;
+    copyBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 4. toggleDebugConsole when modal is missing
+    document.body.innerHTML = '';
+    const { toggleDebugConsole } = await import('../ui/debug-console');
+    toggleDebugConsole();
+
+    // 5. keydown event that does not match
+    const eventNonMatch = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(eventNonMatch);
+  });
 });

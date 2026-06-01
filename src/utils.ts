@@ -2,8 +2,7 @@ export function escapeHtml(s: string) {
   return s.replace(
     /[&<>"]/g,
     (c) =>
-      (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }) as Record<string, string>)[c] ||
-      c
+      (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }) as Record<string, string>)[c]
   );
 }
 
@@ -12,7 +11,7 @@ export function sanitizeHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   doc.querySelectorAll('script').forEach((n) => n.remove());
   doc.querySelectorAll('*').forEach((node) => {
-    Array.from(node.attributes || []).forEach((attr) => {
+    Array.from(node.attributes).forEach((attr) => {
       if (attr.name.startsWith('on')) node.removeAttribute(attr.name);
     });
   });

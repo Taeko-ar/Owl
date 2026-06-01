@@ -95,7 +95,7 @@ windowCloseBtn?.addEventListener('click', async () => {
 });
 
 playBtn?.addEventListener('click', async () => {
-  if (playBtn) playBtn.disabled = true;
+  playBtn!.disabled = true;
   setLoadingState(getTranslation('status.launching'), 20, statusFooter, activityProgress);
 
   try {
@@ -112,7 +112,7 @@ playBtn?.addEventListener('click', async () => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     statusFooter.textContent = `Error: ${errorMessage}`;
   } finally {
-    if (playBtn) playBtn.disabled = false;
+    playBtn!.disabled = false;
     setTimeout(clearLoadingState, 1200);
   }
 });

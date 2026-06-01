@@ -239,7 +239,7 @@ export function setupImportExportEvents() {
   });
 
   importPreviewConfirmBtn?.addEventListener('click', async () => {
-    if (!activePayloadToImport || !gamePathInput || !statusFooter) return;
+    if (!activePayloadToImport || !gamePathInput) return;
 
     closeImportPreview();
     const payload = activePayloadToImport;
@@ -263,7 +263,9 @@ export function setupImportExportEvents() {
     }
 
     const total = restorable.length;
-    statusFooter.textContent = `Starting import of ${total} addons...`;
+    if (statusFooter) {
+      statusFooter.textContent = `Starting import of ${total} addons...`;
+    }
 
     const activityProgress = document.getElementById('activityProgress');
     if (activityProgress) {
@@ -274,7 +276,9 @@ export function setupImportExportEvents() {
       const addon = restorable[i];
       const percent = Math.round((i / total) * 100);
 
-      statusFooter.textContent = getTranslation('status.downloadingAddon', { name: addon.name });
+      if (statusFooter) {
+        statusFooter.textContent = getTranslation('status.downloadingAddon', { name: addon.name });
+      }
       if (activityProgress) {
         activityProgress.style.width = `${percent}%`;
       }
@@ -359,14 +363,18 @@ export function setupImportExportEvents() {
       `Import finished. Success: ${successCount}. Fail: ${failedCount}.` +
       (failedCount > 0 ? ` Failed: ${failedList.join(', ')}` : '');
 
-    statusFooter.textContent = summary;
+    if (statusFooter) {
+      statusFooter.textContent = summary;
+    }
     showToast(`Import completed: ${successCount} installed.`);
 
     setTimeout(() => {
       if (activityProgress) {
         activityProgress.style.width = '0%';
       }
-      statusFooter.textContent = getTranslation('status.ready');
+      if (statusFooter) {
+        statusFooter.textContent = getTranslation('status.ready');
+      }
     }, 4000);
 
     const { loadAddonsAndPatches } = await import('../main');

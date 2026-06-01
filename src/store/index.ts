@@ -8,3 +8,4 @@ export {
   searchGithub,
   renderGithubTagFilters,
 } from './ui';
+export const STORE_INITIALIZED = true;

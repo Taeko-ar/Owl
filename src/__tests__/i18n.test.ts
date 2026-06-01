@@ -91,4 +91,84 @@ describe('i18n', () => {
     expect(localStorage.getItem('lang')).toBe('pt');
     expect(el.textContent).toBe('Ajustes');
   });
+
+  it('falls back to English when a language is not supported or key is missing', () => {
+    localStorage.setItem('lang', 'fr');
+    expect(getTranslation('tabs.addons')).toBe('Addons');
+    expect(getTranslation('nonexistent.key')).toBe('nonexistent.key');
+  });
+
+  it('does not translate when data-i18n attribute is empty', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-i18n', '');
+    el.textContent = 'Keep Me';
+    document.body.appendChild(el);
+    translateDOM();
+    expect(el.textContent).toBe('Keep Me');
+  });
+
+  it('updates optgroup label attribute', () => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.setAttribute('data-i18n', 'tabs.addons');
+    optgroup.label = 'Old Label';
+    document.body.appendChild(optgroup);
+
+    localStorage.setItem('lang', 'es');
+    translateDOM();
+    expect(optgroup.label).toBe('Complementos');
+  });
+
+  it('updates placeholder attribute for inputs and textareas', () => {
+    const input = document.createElement('input');
+    input.setAttribute('data-i18n-placeholder', 'buttons.play');
+    document.body.appendChild(input);
+
+    const textarea = document.createElement('textarea');
+    textarea.setAttribute('data-i18n-placeholder', 'buttons.play');
+    document.body.appendChild(textarea);
+
+    localStorage.setItem('lang', 'es');
+    translateDOM();
+    expect(input.placeholder).toBe('JUGAR');
+    expect(textarea.placeholder).toBe('JUGAR');
+  });
+
+  it('updates title attribute on elements with data-i18n-title', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-i18n-title', 'buttons.play');
+    document.body.appendChild(el);
+
+    localStorage.setItem('lang', 'es');
+    translateDOM();
+    expect(el.getAttribute('title')).toBe('JUGAR');
+  });
+
+  it('updates input value attribute for submit elements', () => {
+    const input = document.createElement('input');
+    input.type = 'submit';
+    input.setAttribute('data-i18n', 'buttons.play');
+    input.value = 'Old Value';
+    document.body.appendChild(input);
+
+    localStorage.setItem('lang', 'es');
+    translateDOM();
+    expect(input.value).toBe('JUGAR');
+  });
+
+  it('ignores placeholder and title translation when keys are empty or element is invalid', () => {
+    const div = document.createElement('div');
+    div.setAttribute('data-i18n-placeholder', 'buttons.play');
+    div.setAttribute('data-i18n-title', '');
+    document.body.appendChild(div);
+
+    const input = document.createElement('input');
+    input.setAttribute('data-i18n-placeholder', '');
+    document.body.appendChild(input);
+
+    localStorage.setItem('lang', 'es');
+    translateDOM();
+    expect(div.getAttribute('placeholder')).toBeNull();
+    expect(div.getAttribute('title')).toBeNull();
+    expect(input.placeholder).toBe('');
+  });
 });

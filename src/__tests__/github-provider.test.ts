@@ -312,4 +312,216 @@ describe('GitHub Addon Provider', () => {
 
     expect(selectedCount.textContent).toBe('0');
   });
+
+  it('covers getReleaseTypeName edge cases', async () => {
+    const { getReleaseTypeName } = await import('../store/github');
+    expect(getReleaseTypeName(3)).toBe('Alpha');
+    expect(getReleaseTypeName(99)).toBe('Unknown');
+  });
+
+  it('covers fetchGithubReleases when releases are empty or network fails', async () => {
+    const { fetchGithubReleases } = await import('../store/github');
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/)) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ default_branch: 'develop' }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const res1 = await fetchGithubReleases('Questie/Questie');
+    expect(res1[0].displayName).toBe('Questie (Source Code: develop)');
+
+    mockFetch.mockRejectedValue(new Error('Network error'));
+    const res2 = await fetchGithubReleases('Questie/Questie');
+    expect(res2[0].displayName).toBe('Questie (Source Code: master)');
+  });
+
+  it('covers searchGithubApi failures', async () => {
+    const { searchGithubApi } = await import('../store/github');
+    mockFetch.mockResolvedValue({ ok: false, status: 500, statusText: 'Internal Server Error' });
+    await expect(searchGithubApi('q')).rejects.toThrow(
+      'GitHub API returned status: 500 Internal Server Error'
+    );
+  });
+
+  it('covers fetchGithubReleases when releases call returns non-ok status', async () => {
+    const { fetchGithubReleases } = await import('../store/github');
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases')) {
+        return Promise.resolve({ ok: false, status: 404 });
+      }
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/)) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ default_branch: 'master-branch' }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const res = await fetchGithubReleases('Questie/Questie');
+    expect(res[0].displayName).toBe('Questie (Source Code: master-branch)');
+  });
+
+  it('covers searchGithubApi when items are missing', async () => {
+    const { searchGithubApi } = await import('../store/github');
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+    const res = await searchGithubApi('test');
+    expect(res).toEqual([]);
+  });
+
+  it('covers fetchGithubReleases when releases fail and repo detail fails or missing default_branch', async () => {
+    const { fetchGithubReleases } = await import('../store/github');
+
+    // 1. releases fail, repo metadata query fails (repoRes.ok = false)
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases')) return Promise.resolve({ ok: false, status: 404 });
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/))
+        return Promise.resolve({ ok: false });
+      return Promise.resolve({ ok: false });
+    });
+    let res = await fetchGithubReleases('Questie/Questie');
+    expect(res[0].displayName).toBe('Questie (Source Code: master)');
+
+    // 2. releases fail, repo metadata succeeds but default_branch is missing
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases')) return Promise.resolve({ ok: false, status: 404 });
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/)) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    res = await fetchGithubReleases('Questie/Questie');
+    expect(res[0].displayName).toBe('Questie (Source Code: master)');
+  });
+
+  it('covers fetchGithubReleases releaseName fallback, asset prerelease, 7z assets, and prerelease fallback', async () => {
+    const { fetchGithubReleases } = await import('../store/github');
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 1,
+                name: null, // trigger rel.tag_name fallback
+                tag_name: 'v1.0.0',
+                prerelease: true, // trigger prerelease type
+                assets: [
+                  {
+                    id: 11,
+                    name: 'file.7z', // trigger .7z match
+                    browser_download_url: 'dl-7z',
+                  },
+                  {
+                    id: 12,
+                    name: 'file.txt', // trigger non-zip/7z filter branch
+                    browser_download_url: 'dl-txt',
+                  },
+                ],
+              },
+              {
+                id: 2,
+                name: 'v2.0.0',
+                tag_name: 'v2.0.0',
+                prerelease: true,
+                assets: [], // trigger fallback tag zip with prerelease true
+              },
+            ]),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const res = await fetchGithubReleases('Questie/Questie');
+    expect(res.length).toBe(2);
+    expect(res[0].displayName).toContain('v1.0.0');
+    expect(res[0].releaseType).toBe(2); // Beta/Prerelease
+    expect(res[1].releaseType).toBe(2); // Beta/Prerelease
+  });
+
+  it('covers fetchGithubReleases when releases succeeds but is empty and repoRes metadata fails or has missing default_branch', async () => {
+    const { fetchGithubReleases } = await import('../store/github');
+
+    // 1. releases is empty array, repoRes fails
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/))
+        return Promise.resolve({ ok: false });
+      return Promise.resolve({ ok: false });
+    });
+    let res = await fetchGithubReleases('Questie/Questie');
+    expect(res[0].displayName).toBe('Questie (Source Code: master)');
+
+    // 2. releases is empty array, repoRes succeeds but default_branch is missing
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/releases'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url.match(/api\.github\.com\/repos\/[^/]+\/[^/]+$/)) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    res = await fetchGithubReleases('Questie/Questie');
+    expect(res[0].displayName).toBe('Questie (Source Code: master)');
+  });
+
+  it('covers searchGithubApi mapper fallback paths (missing description, owner, html_url, has_issues)', async () => {
+    const { searchGithubApi } = await import('../store/github');
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          items: [
+            {
+              id: 123,
+              name: 'RepoName',
+              full_name: 'owner/RepoName',
+              description: null, // missing description
+              owner: undefined, // missing owner info
+              html_url: '', // empty html_url
+              has_issues: false, // has_issues is false
+            },
+            {
+              id: 124,
+              name: 'RepoWithIssues',
+              full_name: 'owner/RepoWithIssues',
+              description: 'Desc',
+              owner: { login: 'owner', avatar_url: 'avatar' },
+              html_url: 'https://github.com/owner/RepoWithIssues',
+              has_issues: true, // has_issues is true
+            },
+          ],
+        }),
+    });
+
+    const res = await searchGithubApi('test');
+    expect(res.length).toBe(2);
+    expect(res[0].description).toBe('No description provided.');
+    expect(res[0].logoUrl).toBe('');
+    expect(res[0].authors).toBe('Unknown');
+    expect(res[0].websiteUrl).toBe('');
+    expect(res[0].issuesUrl).toBe('');
+
+    expect(res[1].issuesUrl).toBe('https://github.com/owner/RepoWithIssues/issues');
+  });
 });

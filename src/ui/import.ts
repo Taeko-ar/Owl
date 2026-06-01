@@ -44,7 +44,7 @@ export function setupImportModalEvents() {
 
     document.body.appendChild(overlay);
     const { translateDOM } = await import('../main');
-    translateDOM(overlay);
+    translateDOM();
     const closeOverlay = () => overlay.remove();
     const getAddonsOptionBtn = overlay.querySelector('#importGetAddonsBtn') as HTMLButtonElement;
     const githubBtn = overlay.querySelector('#importGithubBtn') as HTMLButtonElement;

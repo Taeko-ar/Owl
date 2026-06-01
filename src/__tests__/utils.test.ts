@@ -5,6 +5,7 @@ import {
   escapeHtml,
   formatWithColorCodes,
   renderMarkdown,
+  sanitizeHtml,
   setLoadingState,
   clearLoadingState,
   showTextInputModal,
@@ -40,11 +41,12 @@ describe('utils', () => {
 
   it('renders markdown headings, bold, code, links, and sanitizes scripts', () => {
     const html = renderMarkdown(
-      '# Title\n\n**Bold** and `code`.\n\n[Link](https://example.com)\n\n<script>alert(1)</script>'
+      '# Title\n\n**Bold** and `code`.\n\n```\nconst x = 1;\n```\n\n[Link](https://example.com)\n\n<script>alert(1)</script>'
     );
     expect(html).toContain('<h1>Title</h1>');
     expect(html).toContain('<strong>Bold</strong>');
     expect(html).toContain('<code>code</code>');
+    expect(html).toContain('<pre><code><br>const x = 1;<br></code></pre>');
     expect(html).toContain('<a href="https://example.com"');
     expect(html).not.toContain('<script>');
   });
@@ -127,6 +129,16 @@ describe('utils', () => {
     expect(fn).toHaveBeenCalledWith('c');
   });
 
+  it('debounce uses default wait parameter', async () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn);
+    debounced('x');
+    vi.advanceTimersByTime(700);
+    await Promise.resolve();
+    expect(fn).toHaveBeenCalledWith('x');
+  });
+
   it('setLoadingState sets status text and clamps progress', () => {
     const statusFooter = document.createElement('div');
     const activityProgress = document.createElement('div');
@@ -168,6 +180,23 @@ describe('utils', () => {
     expect(document.querySelector('.fixed.inset-0')).toBeNull();
   });
 
+  it('showTextInputModal submits on Enter key press', async () => {
+    const promise = showTextInputModal({
+      title: 'Test',
+      label: 'Enter value',
+      initialValue: 'hello-enter',
+    });
+
+    const input = document.querySelector('#modalInput') as HTMLInputElement;
+    expect(input).not.toBeNull();
+
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+    input.dispatchEvent(event);
+
+    const result = await promise;
+    expect(result).toBe('hello-enter');
+  });
+
   it('showTextInputModal returns null when cancelled', async () => {
     const promise = showTextInputModal({
       title: 'Test',
@@ -190,8 +219,15 @@ describe('utils', () => {
     const toast = document.querySelector('.toast');
     expect(toast).not.toBeNull();
 
-    vi.advanceTimersByTime(100);
-    vi.runOnlyPendingTimers();
+    vi.runAllTimers();
+    expect(document.querySelector('.toast')).toBeNull();
+  });
+
+  it('showToast uses default timeout parameter', () => {
+    vi.useFakeTimers();
+    showToast('Hello Default');
+    expect(document.querySelector('.toast')).not.toBeNull();
+    vi.runAllTimers();
     expect(document.querySelector('.toast')).toBeNull();
   });
 
@@ -216,5 +252,64 @@ describe('utils', () => {
       enabled: false,
       displayName: 'patch-C',
     });
+  });
+
+  it('formats WoW color codes with 6-hex-characters correctly', () => {
+    const html = formatWithColorCodes('|c00ff00Green');
+    expect(html).toContain('<span style="color:#00ff00">Green</span>');
+  });
+
+  it('renders markdown with absolute or missing image paths', () => {
+    expect(renderMarkdown('![alt](https://test.com/img.png)')).toContain(
+      'src="https://test.com/img.png"'
+    );
+    expect(renderMarkdown('![alt](./img.png)')).toContain('src="./img.png"');
+    expect(renderMarkdown('![alt](./img.png)', 'C:\\game\\addon\\')).toContain(
+      'src="file:///C:/game/addon/img.png"'
+    );
+  });
+
+  it('setLoadingState and clearLoadingState handle null elements', () => {
+    setLoadingState('Loading', 50, null, null);
+    clearLoadingState(null, null);
+  });
+
+  it('showTextInputModal ignores submit click when value is empty', async () => {
+    const promise = showTextInputModal({
+      title: 'Test',
+      label: 'Enter value',
+    });
+
+    const input = document.querySelector('#modalInput') as HTMLInputElement;
+    const submit = document.querySelector('#modalSubmitBtn') as HTMLButtonElement;
+    expect(input).not.toBeNull();
+    input.value = '   ';
+    submit.click();
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+    input.dispatchEvent(event);
+
+    const cancel = document.querySelector('#modalCancelBtn2') as HTMLButtonElement;
+    cancel.click();
+
+    const result = await promise;
+    expect(result).toBeNull();
+  });
+
+  it('covers formatWithColorCodes edge cases', () => {
+    expect(formatWithColorCodes('|cnothexGreen')).toBe('|cnothexGreen');
+    expect(formatWithColorCodes('|Cff0000Red|R')).toBe('<span style="color:#ff0000">Red</span>');
+    expect(formatWithColorCodes('Normal|rText')).toBe('NormalText');
+  });
+
+  it('covers sanitizeHtml edge cases', () => {
+    expect(sanitizeHtml('')).toBe('');
+    expect(renderMarkdown('')).toBe('');
+    const div = document.createElement('div');
+    div.innerHTML = renderMarkdown('<img src="x" onerror="alert(1)" onclick="alert(2)" />');
+    const img = div.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute('onerror')).toBeNull();
+    expect(img?.getAttribute('onclick')).toBeNull();
   });
 });

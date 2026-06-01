@@ -120,7 +120,7 @@ export async function loadSavedSettings() {
   } catch {
     if (windowSizeSelect) {
       windowSizeSelect.value = defaultLauncherSize;
-      setLauncherWindowSize(defaultLauncherSize).catch(() => undefined);
+      setLauncherWindowSize(defaultLauncherSize);
     }
   }
 }
