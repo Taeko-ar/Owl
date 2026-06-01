@@ -15,6 +15,7 @@ rfd = "0.14"
 dirs = "5.0"
 tauri-plugin-updater = "2.10.1"
 sha1 = "0.10"
+base64 = "0.22.1"
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }

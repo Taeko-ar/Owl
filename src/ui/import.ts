@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getTranslation } from '../i18n/index';
 import { showToast, showTextInputModal } from '../utils';
 import { loadAddonsAndPatches } from '../main';
+import { handleImportString } from './import-export';
 
 export function setupImportModalEvents() {
   const importAddonBtn = document.getElementById('importAddonBtn') as HTMLButtonElement | null;
@@ -21,25 +22,42 @@ export function setupImportModalEvents() {
           <button type="button" id="importCancelBtn" class="text-slate-400 hover:text-slate-200">✕</button>
         </div>
         <div class="grid gap-3">
+          <button id="importGetAddonsBtn" class="w-full rounded bg-slate-800 px-4 py-3 text-left text-slate-100 hover:bg-slate-700">
+            <div class="font-semibold" data-i18n="import.getAddonsOption">Get Addons</div>
+            <div class="text-sm text-slate-400" data-i18n="import.getAddonsOptionDesc">Search and download addons from CurseForge or GitHub.</div>
+          </button>
           <button id="importGithubBtn" class="w-full rounded bg-slate-800 px-4 py-3 text-left text-slate-100 hover:bg-slate-700">
-            <div class="font-semibold">${getTranslation('import.github')}</div>
-            <div class="text-sm text-slate-400">${getTranslation('import.githubDesc')}</div>
+            <div class="font-semibold" data-i18n="import.github">Import from GitHub</div>
+            <div class="text-sm text-slate-400" data-i18n="import.githubDesc">Paste a GitHub repository URL for the addon.</div>
           </button>
           <button id="importFileBtn" class="w-full rounded bg-slate-800 px-4 py-3 text-left text-slate-100 hover:bg-slate-700">
-            <div class="font-semibold">${getTranslation('import.file')}</div>
-            <div class="text-sm text-slate-400">${getTranslation('import.fileDesc')}</div>
+            <div class="font-semibold" data-i18n="import.file">Import from file</div>
+            <div class="text-sm text-slate-400" data-i18n="import.fileDesc">Select one or more archive files (.zip, .7z).</div>
+          </button>
+          <button id="importStringBtn" class="w-full rounded bg-slate-800 px-4 py-3 text-left text-slate-100 hover:bg-slate-700">
+            <div class="font-semibold" data-i18n="import.string">Import from code string</div>
+            <div class="text-sm text-slate-400" data-i18n="import.stringDesc">Paste an exported addon list base64 code string.</div>
           </button>
         </div>
       </div>
     `;
 
     document.body.appendChild(overlay);
+    const { translateDOM } = await import('../main');
+    translateDOM(overlay);
     const closeOverlay = () => overlay.remove();
+    const getAddonsOptionBtn = overlay.querySelector('#importGetAddonsBtn') as HTMLButtonElement;
     const githubBtn = overlay.querySelector('#importGithubBtn') as HTMLButtonElement;
     const fileBtn = overlay.querySelector('#importFileBtn') as HTMLButtonElement;
+    const stringBtn = overlay.querySelector('#importStringBtn') as HTMLButtonElement;
     const cancelBtn = overlay.querySelector('#importCancelBtn') as HTMLButtonElement;
 
     cancelBtn.addEventListener('click', () => closeOverlay());
+
+    getAddonsOptionBtn.addEventListener('click', () => {
+      closeOverlay();
+      window.dispatchEvent(new CustomEvent('open-store'));
+    });
 
     githubBtn.addEventListener('click', async () => {
       closeOverlay();
@@ -76,6 +94,11 @@ export function setupImportModalEvents() {
       } catch (err) {
         if (statusFooter) statusFooter.textContent = `Error: ${err}`;
       }
+    });
+
+    stringBtn.addEventListener('click', async () => {
+      closeOverlay();
+      await handleImportString();
     });
   });
 }

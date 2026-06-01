@@ -289,3 +289,114 @@ pub fn delete_addon(base_path: String, addon_name: String) -> std::result::Resul
     Ok(format!("Deleted {}", addon_name))
 }
 
+#[tauri::command]
+pub fn export_addon_list(base_path: String) -> std::result::Result<String, String> {
+    let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
+    if !addons_dir.exists() {
+        return Err("AddOns directory not found".into());
+    }
+    let canonical_base = fs::canonicalize(&base_path).map_err(|e| e.to_string())?;
+    let canonical_addons = fs::canonicalize(&addons_dir).map_err(|e| e.to_string())?;
+    if !canonical_addons.starts_with(&canonical_base) {
+        return Err("Directory traversal attempt blocked".into());
+    }
+
+    let mut exported_addons = Vec::new();
+    let entries = fs::read_dir(&addons_dir).map_err(|e| e.to_string())?;
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let folder_name = entry.file_name().to_string_lossy().to_string();
+        if folder_name.starts_with("Blizzard_") {
+            continue;
+        }
+
+        let enabled = !folder_name.ends_with("-disabled");
+        let base_name = if folder_name.ends_with("-disabled") {
+            folder_name.trim_end_matches("-disabled").to_string()
+        } else {
+            folder_name.clone()
+        };
+
+        // Determine source
+        let mut source = "manual".to_string();
+        let mut git_url = None;
+        let mut branch = None;
+        let mut commit_sha = None;
+        let mut mod_id = None;
+        let mut file_id = None;
+
+        let owl_meta_path = path.join(".owl-meta.json");
+        let git_dir = path.join(".git");
+        let cf_meta_path = path.join(".curseforge-meta.json");
+
+        if owl_meta_path.exists() {
+            if let Ok(content) = fs::read_to_string(&owl_meta_path) {
+                if let Ok(meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
+                    source = "github".to_string();
+                    git_url = Some(meta.remote_url);
+                    branch = Some(meta.branch);
+                    commit_sha = Some(meta.commit_sha);
+                }
+            }
+        } else if git_dir.exists() {
+            if let Ok(remote) = run_git_command(&path, &["remote", "get-url", "origin"]) {
+                source = "github".to_string();
+                git_url = Some(remote);
+                if let Ok(b) = run_git_command(&path, &["rev-parse", "--abbrev-ref", "HEAD"]) {
+                    branch = Some(b);
+                }
+                if let Ok(sha) = run_git_command(&path, &["rev-parse", "HEAD"]) {
+                    commit_sha = Some(sha);
+                }
+            }
+        } else if cf_meta_path.exists() {
+            if let Ok(content) = fs::read_to_string(&cf_meta_path) {
+                if let Ok(meta) = serde_json::from_str::<CurseForgeMeta>(&content) {
+                    source = "curseforge".to_string();
+                    mod_id = Some(meta.mod_id);
+                    file_id = Some(meta.file_id);
+                }
+            }
+        }
+
+        exported_addons.push(ExportedAddon {
+            name: base_name,
+            enabled,
+            source,
+            git_url,
+            branch,
+            commit_sha,
+            mod_id,
+            file_id,
+        });
+    }
+
+    if exported_addons.is_empty() {
+        return Err("No addons to export".into());
+    }
+
+    let payload = ExportPayload {
+        v: 1,
+        addons: exported_addons,
+    };
+
+    let json_str = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let b64 = STANDARD.encode(json_str);
+    Ok(b64)
+}
+
+#[tauri::command]
+pub fn validate_import_string(import_str: String) -> std::result::Result<ExportPayload, String> {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let decoded_bytes = STANDARD.decode(import_str.trim()).map_err(|e| e.to_string())?;
+    let json_str = String::from_utf8(decoded_bytes).map_err(|e| e.to_string())?;
+    let payload = serde_json::from_str::<ExportPayload>(&json_str).map_err(|e| e.to_string())?;
+    if payload.v != 1 {
+        return Err(format!("Unsupported export payload version: {}", payload.v));
+    }
+    Ok(payload)
+}

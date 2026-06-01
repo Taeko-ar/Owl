@@ -163,6 +163,9 @@ export async function installSelectedAddons() {
         basePath: gamePathInput().value,
         url: version.downloadUrl,
         sha1: version.sha1 || null,
+        modId: addon.modId || null,
+        fileId:
+          typeof version.id === 'number' ? version.id : parseInt(version.id as string, 10) || null,
       });
 
       if (statusCell) {

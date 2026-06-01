@@ -18,6 +18,12 @@ window.addEventListener('reload-addons', () => {
   if (onReloadAddons) onReloadAddons();
 });
 
+declare global {
+  interface Window {
+    __openStoreListener?: () => Promise<void>;
+  }
+}
+
 export function setupStoreEvents(reloadCallback: () => Promise<void>) {
   onReloadAddons = reloadCallback;
   const getAddonsBtn = document.getElementById('getAddonsBtn');
@@ -31,7 +37,7 @@ export function setupStoreEvents(reloadCallback: () => Promise<void>) {
   const storeSidebarTabs = document.querySelectorAll('.store-sidebar-tab');
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  getAddonsBtn?.addEventListener('click', async () => {
+  const openStore = async () => {
     storeModal?.classList.remove('hidden');
     selectedAddons.clear();
     updateFooterState();
@@ -58,7 +64,14 @@ export function setupStoreEvents(reloadCallback: () => Promise<void>) {
     }
     renderGithubTagFilters();
     switchSiteTab('curseforge');
-  });
+  };
+
+  getAddonsBtn?.addEventListener('click', openStore);
+  if (window.__openStoreListener) {
+    window.removeEventListener('open-store', window.__openStoreListener);
+  }
+  window.__openStoreListener = openStore;
+  window.addEventListener('open-store', openStore);
 
   const closeStore = () => {
     storeModal?.classList.add('hidden');

@@ -112,6 +112,7 @@ export const TAURI_MOCK_SCRIPT = `
 
       case 'download_curseforge_addon':
       case 'download_github_release':
+      case 'download_and_extract_addon':
       case 'toggle_addon':
       case 'toggle_patch':
       case 'open_addon_folder':
@@ -123,6 +124,20 @@ export const TAURI_MOCK_SCRIPT = `
       case 'save_settings':
       case 'check_for_app_update':
         return null;
+
+      case 'export_addon_list':
+        return window.__OWL_MOCK_EXPORT_STRING__ || 'eyJ2IjoxLCJhZGRvbnMiOlt7Im5hbWUiOiJUZXN0QWRkb24iLCJlbmFibGVkIjp0cnVlLCJzb3VyY2UiOiJtYW51YWwifV19';
+
+      case 'validate_import_string':
+        if (args?.importStr?.includes('invalid')) {
+          throw new Error('Invalid base64 string');
+        }
+        return window.__OWL_MOCK_IMPORT_PAYLOAD__ || {
+          v: 1,
+          addons: [
+            { name: 'TestAddon', enabled: true, source: 'manual' }
+          ]
+        };
 
       case 'git_status':
         return { status: 'up_to_date', branch: 'main' };

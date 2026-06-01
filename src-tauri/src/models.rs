@@ -43,4 +43,32 @@ pub struct LauncherSettings {
     pub window_size: Option<String>,
     pub stay_open: Option<bool>,
 }
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ExportedAddon {
+    pub name: String,
+    pub enabled: bool,
+    pub source: String, // "github", "curseforge", or "manual"
+    #[serde(rename = "gitUrl")]
+    pub git_url: Option<String>,
+    pub branch: Option<String>,
+    #[serde(rename = "commitSha")]
+    pub commit_sha: Option<String>,
+    #[serde(rename = "modId")]
+    pub mod_id: Option<i32>,
+    #[serde(rename = "fileId")]
+    pub file_id: Option<i32>,
+}
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ExportPayload {
+    pub v: i32,
+    pub addons: Vec<ExportedAddon>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CurseForgeMeta {
+    #[serde(rename = "modId")]
+    pub mod_id: i32,
+    #[serde(rename = "fileId")]
+    pub file_id: i32,
+}

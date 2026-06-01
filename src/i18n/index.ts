@@ -34,6 +34,13 @@ export function translateDOM() {
       el.placeholder = getTranslation(key);
     }
   });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-title');
+    if (key) {
+      el.setAttribute('title', getTranslation(key));
+    }
+  });
 }
 
 export function setAppLanguage(lang: 'en' | 'es' | 'pt') {

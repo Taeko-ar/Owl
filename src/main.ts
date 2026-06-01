@@ -7,6 +7,7 @@ import { translations, getTranslation, translateDOM, setAppLanguage } from './i1
 import { setupStoreEvents } from './store';
 import { setupMainSearchEvents, setupSearchHoverBehavior } from './ui/search';
 import { setupImportModalEvents } from './ui/import';
+import { setupImportExportEvents } from './ui/import-export';
 import { setupGitStatusEvents } from './ui/git-status';
 import { loadAddonsAndPatches } from './tabs/addons';
 import { loadConfig } from './tabs/tweaks';
@@ -23,12 +24,8 @@ export {
 };
 
 function updateNavButtonsForTab(tabName: string | null) {
-  const importBtn = document.getElementById('importAddonBtn');
   const openModsBtn = document.getElementById('openModsFolder');
-  const getAddonsBtn = document.getElementById('getAddonsBtn');
-  if (!importBtn || !openModsBtn) return;
-  importBtn.classList.toggle('hidden', tabName !== 'addons');
-  getAddonsBtn?.classList.toggle('hidden', tabName !== 'addons');
+  if (!openModsBtn) return;
   openModsBtn.classList.toggle('hidden', tabName !== 'mods');
 }
 
@@ -173,6 +170,7 @@ if (statusFooter) {
   loadSavedSettings().then(() => {
     translateDOM();
     setupGitStatusEvents();
+    setupImportExportEvents();
     setupStoreEvents(loadAddonsAndPatches);
     setupMainSearchEvents();
     setupSearchHoverBehavior();

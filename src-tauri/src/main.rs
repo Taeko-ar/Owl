@@ -79,6 +79,8 @@ fn main() {
             commands::window::set_window_size,
             commands::addons::check_addon_git_status,
             commands::addons::change_addon_branch,
+            commands::addons::export_addon_list,
+            commands::addons::validate_import_string,
             commands::store::search_curseforge_addons,
             commands::store::get_curseforge_mod_files,
             commands::store::get_curseforge_mod_description,

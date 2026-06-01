@@ -54,7 +54,7 @@ export class NavbarPage {
     this.statusBar = page.locator('#status');
     this.playBtn = page.locator('#playBtn');
 
-    this.getAddonsBtn = page.locator('#getAddonsBtn');
+    this.getAddonsBtn = page.locator('#importGetAddonsBtn');
     this.importAddonBtn = page.locator('#importAddonBtn');
     this.openFolderBtn = page.locator('#openModsFolder');
   }
@@ -80,6 +80,7 @@ export class NavbarPage {
   }
 
   async openStore() {
+    await this.importAddonBtn.click();
     await this.getAddonsBtn.click();
   }
 

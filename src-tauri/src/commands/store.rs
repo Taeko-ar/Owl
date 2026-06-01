@@ -2,6 +2,7 @@ use crate::{get_curseforge_base_url, CURSEFORGE_API_KEY, verify_sha1};
 use tempfile::TempDir;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::models::{CurseForgeMeta};
 use crate::fs_utils::*;
 use crate::archive::*;
 
@@ -94,7 +95,13 @@ pub async fn get_curseforge_mod_description(mod_id: i32, is_mock: bool) -> std::
 }
 
 #[tauri::command]
-pub async fn download_and_extract_addon(base_path: String, url: String, sha1: Option<String>) -> std::result::Result<String, String> {
+pub async fn download_and_extract_addon(
+    base_path: String,
+    url: String,
+    sha1: Option<String>,
+    mod_id: Option<i32>,
+    file_id: Option<i32>,
+) -> std::result::Result<String, String> {
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
     if !addons_dir.exists() {
         fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
@@ -183,6 +190,19 @@ pub async fn download_and_extract_addon(base_path: String, url: String, sha1: Op
         }
         copy_dir_recursive(&source_path, &target_dir)?;
         imported.push(target_name.to_string());
+    }
+
+    if let (Some(m_id), Some(f_id)) = (mod_id, file_id) {
+        let meta = CurseForgeMeta {
+            mod_id: m_id,
+            file_id: f_id,
+        };
+        if let Ok(meta_json) = serde_json::to_string_pretty(&meta) {
+            for imp in &imported {
+                let meta_path = addons_dir.join(imp).join(".curseforge-meta.json");
+                let _ = fs::write(&meta_path, &meta_json);
+            }
+        }
     }
 
     Ok(format!("Successfully imported: {}", imported.join(", ")))

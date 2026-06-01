@@ -47,9 +47,10 @@ test.describe('Navigation & Layout', () => {
     await expect(navbar.playBtn).toBeVisible();
   });
 
-  test('Get Addons and Import Addon buttons are visible on Addons tab', async () => {
-    await expect(navbar.getAddonsBtn).toBeVisible();
+  test('Import Addon and Export Addons buttons are visible on Addons tab', async ({ appPage }) => {
     await expect(navbar.importAddonBtn).toBeVisible();
+    const exportBtn = appPage.locator('#exportAddonsBtn');
+    await expect(exportBtn).toBeVisible();
   });
 
   test('Open Folder button is hidden on addons tab and visible on mods tab', async () => {

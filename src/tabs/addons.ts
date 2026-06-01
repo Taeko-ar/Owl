@@ -34,6 +34,12 @@ export async function loadAddonsAndPatches() {
       addonsList.classList.remove('hidden');
       addonsList.style.display = '';
 
+      const exportBtn = document.getElementById('exportAddonsBtn') as HTMLButtonElement | null;
+      if (exportBtn) {
+        exportBtn.removeAttribute('disabled');
+        exportBtn.removeAttribute('title');
+      }
+
       const metas = await Promise.all(
         visibleAddons.map(async (addon) => {
           try {
@@ -247,6 +253,11 @@ export async function loadAddonsAndPatches() {
         }
       })();
     } else {
+      const exportBtn = document.getElementById('exportAddonsBtn') as HTMLButtonElement | null;
+      if (exportBtn) {
+        exportBtn.setAttribute('disabled', 'true');
+        exportBtn.setAttribute('title', getTranslation('import.emptyTooltip'));
+      }
       addonEmpty.classList.remove('hidden');
       addonEmpty.style.display = 'flex';
       addonEmpty.classList.add('flex', 'flex-1', 'items-center', 'justify-center');
