@@ -88,7 +88,9 @@ export function setupStoreEvents(reloadCallback: () => Promise<void>) {
   });
 
   storeSearchInput?.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
     debounceTimer = setTimeout(() => {
       triggerSearch();
     }, 400);

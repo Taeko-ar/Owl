@@ -75,12 +75,12 @@ export function setupSearchHoverBehavior() {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const showInput = () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       input.classList.add('active');
     };
 
     const hideInputWithDelay = () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         if (input !== document.activeElement && input.value.trim().length === 0) {
           input.classList.remove('active');
@@ -91,7 +91,7 @@ export function setupSearchHoverBehavior() {
     container.addEventListener('mouseenter', showInput);
     container.addEventListener('mouseleave', hideInputWithDelay);
     input.addEventListener('focus', () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     });
 
     input.addEventListener('blur', () => {
