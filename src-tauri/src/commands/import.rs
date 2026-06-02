@@ -92,6 +92,14 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
         let extract_dir = temp_dir.path().join("extract");
         let extracted_root = extract_archive(&zip_path, &extract_dir)?;
 
+        let validation = validate_addon_archive(&extracted_root, &repo)?;
+        match validation {
+            ArchiveValidation::Valid { .. } | ArchiveValidation::Bundled { .. } => {}
+            ArchiveValidation::HasLooseFiles { filename } => return Err(format!("LOOSE_FILES:{}", filename)),
+            ArchiveValidation::NoTocFound { filename } => return Err(format!("NO_TOC:{}", filename)),
+            ArchiveValidation::Corrupted { filename } => return Err(format!("CORRUPTED:{}", filename)),
+        }
+
         fs::rename(&extracted_root, &target_dir).map_err(|e| e.to_string())?;
 
         let meta_file_path = target_dir.join(".owl-meta.json");
@@ -115,76 +123,122 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
         fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
     }
 
+    let temp_parent = addons_dir.join(".temp_install");
+    if !temp_parent.exists() {
+        let _ = fs::create_dir_all(&temp_parent);
+    }
+
     let mut imported = Vec::new();
-    for path_str in file_paths {
-        let file_path = PathBuf::from(&path_str);
+    for (idx, path_str) in file_paths.iter().enumerate() {
+        let file_path = PathBuf::from(path_str);
         if !file_path.exists() {
             return Err(format!("Archive not found: {}", file_path.display()));
         }
 
-        let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
-        let extract_dir = temp_dir.path().join("extracted");
-        let source_path = extract_archive(&file_path, &extract_dir)?;
+        let filename = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("addon.zip").to_string();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let extract_dir = temp_parent.join(format!("temp_{}_{}", timestamp, idx));
+        let _ = fs::create_dir_all(&extract_dir);
 
-        if source_path == extract_dir {
-            let mut has_toc = false;
-            let mut sub_dirs = Vec::new();
-            if let Ok(read_dir) = fs::read_dir(&extract_dir) {
-                for entry in read_dir {
-                    if let Ok(entry) = entry {
-                        let name = entry.file_name();
-                        let name_str = name.to_string_lossy();
-                        if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("__MACOSX") {
-                            continue;
-                        }
-                        if let Ok(ft) = entry.file_type() {
-                            if ft.is_dir() {
-                                sub_dirs.push(entry.path());
-                            } else if name_str.to_lowercase().ends_with(".toc") {
-                                has_toc = true;
-                            }
-                        }
-                    }
-                }
+        let _source_path = match extract_archive(&file_path, &extract_dir) {
+            Ok(p) => p,
+            Err(_e) => {
+                let _ = fs::remove_dir_all(&extract_dir);
+                return Err(format!("CORRUPTED:{}", filename));
             }
+        };
 
-            if has_toc || sub_dirs.is_empty() {
-                let target_name = file_path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("addon");
-                let target_dir = addons_dir.join(target_name);
-                if target_dir.exists() {
-                    fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
-                }
-                copy_dir_recursive(&extract_dir, &target_dir)?;
-                imported.push(target_name.to_string());
-            } else {
-                for sub_dir in sub_dirs {
-                    if let Some(sub_dir_name) = sub_dir.file_name().and_then(|n| n.to_str()) {
-                        let target_dir = addons_dir.join(sub_dir_name);
+        // Validate the extracted content
+        let validation = validate_addon_archive(&extract_dir, &filename)?;
+        match validation {
+            ArchiveValidation::Valid { addon_dirs } => {
+                for dir in addon_dirs {
+                    if let Some(dir_name) = dir.file_name().and_then(|s| s.to_str()) {
+                        let target_dir = addons_dir.join(dir_name);
                         if target_dir.exists() {
                             fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
                         }
-                        copy_dir_recursive(&sub_dir, &target_dir)?;
-                        imported.push(sub_dir_name.to_string());
+                        copy_dir_recursive(&dir, &target_dir)?;
+                        imported.push(dir_name.to_string());
                     }
                 }
+                let _ = fs::remove_dir_all(&extract_dir);
             }
-        } else {
-            let target_name = source_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_else(|| file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("addon"));
-            let target_dir = addons_dir.join(target_name);
-            if target_dir.exists() {
-                fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+            ArchiveValidation::Bundled { addon_dirs } => {
+                let names: Vec<String> = addon_dirs.iter().filter_map(|d| d.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())).collect();
+                return Err(format!("BUNDLED:{}|{}", extract_dir.to_string_lossy(), names.join(",")));
             }
-            copy_dir_recursive(&source_path, &target_dir)?;
-            imported.push(target_name.to_string());
+            ArchiveValidation::HasLooseFiles { filename } => {
+                let _ = fs::remove_dir_all(&extract_dir);
+                return Err(format!("LOOSE_FILES:{}", filename));
+            }
+            ArchiveValidation::NoTocFound { filename } => {
+                let _ = fs::remove_dir_all(&extract_dir);
+                return Err(format!("NO_TOC:{}", filename));
+            }
+            ArchiveValidation::Corrupted { filename } => {
+                let _ = fs::remove_dir_all(&extract_dir);
+                return Err(format!("CORRUPTED:{}", filename));
+            }
         }
     }
 
     Ok(format!("Imported addon(s): {}", imported.join(", ")))
+}
+
+#[tauri::command]
+pub fn confirm_install_bundled(base_path: String, temp_dir_path: String) -> std::result::Result<String, String> {
+    let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
+    let temp_dir = PathBuf::from(&temp_dir_path);
+    if !temp_dir.exists() {
+        return Err("Temporary extraction directory not found".into());
+    }
+
+    let validation = validate_addon_archive(&temp_dir, "addon.zip")?;
+    let mut imported = Vec::new();
+    match validation {
+        ArchiveValidation::Valid { addon_dirs } | ArchiveValidation::Bundled { addon_dirs } => {
+            let cf_meta_path = temp_dir.join(".owl-cf-meta.json");
+            let cf_meta_content = if cf_meta_path.exists() {
+                fs::read_to_string(&cf_meta_path).ok()
+            } else {
+                None
+            };
+
+            for dir in addon_dirs {
+                if let Some(dir_name) = dir.file_name().and_then(|s| s.to_str()) {
+                    let target_dir = addons_dir.join(dir_name);
+                    if target_dir.exists() {
+                        fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
+                    }
+                    copy_dir_recursive(&dir, &target_dir)?;
+                    imported.push(dir_name.to_string());
+
+                    if let Some(ref content) = cf_meta_content {
+                        let _ = fs::write(target_dir.join(".curseforge-meta.json"), content);
+                    }
+                }
+            }
+        }
+        _ => {
+            let _ = fs::remove_dir_all(&temp_dir);
+            return Err("Invalid archive content during confirmation".into());
+        }
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+    Ok(format!("Imported addon(s): {}", imported.join(", ")))
+}
+
+#[tauri::command]
+pub fn cleanup_temp_archive(temp_dir_path: String) -> std::result::Result<(), String> {
+    let temp_dir = PathBuf::from(&temp_dir_path);
+    if temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 

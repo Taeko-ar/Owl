@@ -90,7 +90,12 @@ fn main() {
             commands::store::get_curseforge_mod_files,
             commands::store::get_curseforge_mod_description,
             commands::store::download_and_extract_addon,
-            commands::system::install_update
+            commands::system::install_update,
+            commands::import::confirm_install_bundled,
+            commands::import::cleanup_temp_archive,
+            commands::addons::check_addon_dependencies,
+            commands::addons::check_orphaned_dependencies,
+            commands::store::resolve_addon_dependency
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

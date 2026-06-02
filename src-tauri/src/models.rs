@@ -29,11 +29,13 @@ pub struct AddonMeta {
     pub notes: Option<String>,
     pub optional_deps: Vec<String>,
     pub optional_deps_installed: Vec<bool>,
+    pub required_deps: Vec<String>,
     pub toc_file: Option<String>,
     pub readme: Option<String>,
     pub path: Option<String>,
     pub git_status: Option<AddonGitStatus>,
     pub has_git: bool,
+    pub is_dependency: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

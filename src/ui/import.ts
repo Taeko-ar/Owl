@@ -71,12 +71,20 @@ export function setupImportModalEvents() {
       if (!repoUrl) return;
       try {
         if (statusFooter) statusFooter.textContent = getTranslation('status.importing');
-        if (gamePath) await invoke('import_addon', { basePath: gamePath.value, repoUrl });
+        let res = '';
+        if (gamePath) {
+          res = await invoke<string>('import_addon', { basePath: gamePath.value, repoUrl });
+        }
         await loadAddonsAndPatches();
         if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
         showToast(getTranslation('toast.imported'));
+        if (gamePath) {
+          await handlePostInstallDependencyCheck(gamePath.value, res);
+        }
       } catch (err) {
-        if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+        const errStr = String(err);
+        const cleanErr = parseAndTranslateImportError(errStr);
+        if (statusFooter) statusFooter.textContent = `Error: ${cleanErr}`;
       }
     });
 
@@ -87,12 +95,33 @@ export function setupImportModalEvents() {
         if (!filePaths || filePaths.length === 0) return;
 
         if (statusFooter) statusFooter.textContent = getTranslation('status.importingFiles');
-        if (gamePath) await invoke('import_addon_files', { basePath: gamePath.value, filePaths });
+        let res = '';
+        if (gamePath) {
+          res = await invoke<string>('import_addon_files', { basePath: gamePath.value, filePaths });
+        }
         await loadAddonsAndPatches();
         if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
         showToast(getTranslation('toast.imported'));
+        if (gamePath) {
+          await handlePostInstallDependencyCheck(gamePath.value, res);
+        }
       } catch (err) {
-        if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+        const errStr = String(err);
+        if (errStr.startsWith('BUNDLED:')) {
+          if (statusFooter)
+            statusFooter.textContent = 'Bundled addon detected. Waiting for confirmation.';
+          const parts = errStr.substring(8).split('|');
+          const tempPath = parts[0];
+          const names = parts[1].split(',');
+          if (gamePath) {
+            showBundledWarningModal(gamePath.value, tempPath, names, async () => {
+              await loadAddonsAndPatches();
+            });
+          }
+        } else {
+          const cleanErr = parseAndTranslateImportError(errStr);
+          if (statusFooter) statusFooter.textContent = `Error: ${cleanErr}`;
+        }
       }
     });
 
@@ -101,4 +130,158 @@ export function setupImportModalEvents() {
       await handleImportString();
     });
   });
+}
+
+export function parseAndTranslateImportError(err: string): string {
+  if (err.startsWith('LOOSE_FILES:')) {
+    return getTranslation('import.error.looseFiles');
+  }
+  if (err.startsWith('NO_TOC:')) {
+    return getTranslation('import.error.noToc');
+  }
+  if (err.startsWith('CORRUPTED:')) {
+    return getTranslation('import.error.corrupted');
+  }
+  return err;
+}
+
+export function showBundledWarningModal(
+  basePath: string,
+  tempPath: string,
+  addonNames: string[],
+  onComplete: () => Promise<void>
+) {
+  const modal = document.getElementById('bundledAddonModal') as HTMLElement;
+  const list = document.getElementById('bundledAddonList') as HTMLElement;
+  const confirmBtn = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
+  const cancelBtn = document.getElementById('confirmBundledCancelBtn') as HTMLButtonElement;
+
+  list.innerHTML = addonNames
+    .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+    .join('');
+  modal.classList.remove('hidden');
+
+  const cleanup = () => {
+    modal.classList.add('hidden');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
+  };
+
+  document.getElementById('confirmBundledInstallBtn')?.addEventListener('click', async () => {
+    cleanup();
+    const statusFooter = document.getElementById('status');
+    try {
+      if (statusFooter) statusFooter.textContent = 'Installing bundled addons...';
+      const res = await invoke<string>('confirm_install_bundled', {
+        basePath,
+        tempDirPath: tempPath,
+      });
+      if (statusFooter) statusFooter.textContent = 'Addon imported successfully';
+      showToast(getTranslation('toast.imported'));
+      await onComplete();
+      await handlePostInstallDependencyCheck(basePath, res);
+    } catch (err) {
+      if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+    }
+  });
+
+  document.getElementById('confirmBundledCancelBtn')?.addEventListener('click', async () => {
+    cleanup();
+    await invoke('cleanup_temp_archive', { tempDirPath: tempPath });
+    const statusFooter = document.getElementById('status');
+    if (statusFooter) statusFooter.textContent = 'Installation cancelled.';
+  });
+}
+
+export function showDependencyModal(basePath: string, dependencyNames: string[]) {
+  const modal = document.getElementById('dependencyModal') as HTMLElement;
+  const list = document.getElementById('dependencyList') as HTMLElement;
+  const confirmBtn = document.getElementById('dependencyInstallBtn') as HTMLButtonElement;
+  const cancelBtn = document.getElementById('dependencyCancelBtn') as HTMLButtonElement;
+
+  list.innerHTML = dependencyNames
+    .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+    .join('');
+  modal.classList.remove('hidden');
+
+  const cleanup = () => {
+    modal.classList.add('hidden');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
+  };
+
+  document.getElementById('dependencyInstallBtn')?.addEventListener('click', async () => {
+    cleanup();
+    const statusFooter = document.getElementById('status');
+
+    let isMock = false;
+    try {
+      const { getCurrentActiveSite } = await import('../state');
+      isMock = getCurrentActiveSite() === 'mock';
+    } catch (err) {
+      console.warn('Could not determine active site', err);
+    }
+
+    for (const dep of dependencyNames) {
+      try {
+        if (statusFooter) statusFooter.textContent = `Downloading dependency: ${dep}...`;
+        const res = await invoke<string>('resolve_addon_dependency', {
+          basePath,
+          dependencyName: dep,
+          isMock,
+        });
+        showToast(`Installed dependency: ${dep}`);
+        await handlePostInstallDependencyCheck(basePath, res);
+      } catch (err) {
+        showToast(`Failed to resolve dependency ${dep}: ${err}`);
+      }
+    }
+    if (statusFooter) statusFooter.textContent = 'Dependency resolution complete.';
+    await loadAddonsAndPatches();
+  });
+
+  document.getElementById('dependencyCancelBtn')?.addEventListener('click', () => {
+    cleanup();
+  });
+}
+
+export async function handlePostInstallDependencyCheck(basePath: string, successMessage: string) {
+  let names: string[] = [];
+  if (successMessage.includes(':')) {
+    const parts = successMessage.split(':');
+    if (parts.length > 1) {
+      names = parts[1]
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+  } else if (successMessage.includes('Imported addon ')) {
+    const name = successMessage.replace('Imported addon ', '').split(' ')[0].trim();
+    if (name) names.push(name);
+  }
+
+  if (names.length === 0) return;
+
+  const allMissing = new Set<string>();
+  for (const name of names) {
+    try {
+      const missing = await invoke<string[]>('check_addon_dependencies', {
+        basePath,
+        addonName: name,
+      });
+      for (const dep of missing) {
+        allMissing.add(dep);
+      }
+    } catch (e) {
+      console.error('Error checking deps for', name, e);
+    }
+  }
+
+  if (allMissing.size > 0) {
+    showDependencyModal(basePath, Array.from(allMissing));
+  }
 }

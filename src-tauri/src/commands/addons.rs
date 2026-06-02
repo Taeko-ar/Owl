@@ -38,6 +38,7 @@ pub fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<A
     let mut version = None;
     let mut notes = None;
     let mut optional_deps: Vec<String> = Vec::new();
+    let mut required_deps: Vec<String> = Vec::new();
 
     for entry in fs::read_dir(&addon_path).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -59,6 +60,9 @@ pub fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<A
                                 "notes" => notes = Some(val),
                                 "optionaldeps" => {
                                     optional_deps = val.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                                }
+                                "dependencies" | "requireddeps" => {
+                                    required_deps = val.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
                                 }
                                 _ => {}
                             }
@@ -89,6 +93,46 @@ pub fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<A
     let addon_path_str = addon_path.to_string_lossy().to_string();
     let has_git = addon_path.join(".git").exists() || addon_path.join(".owl-meta.json").exists();
 
+    // Check if this addon is a dependency of any other installed addon
+    let mut is_dep = false;
+    if let Ok(entries) = fs::read_dir(&addons_dir) {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() && entry.file_name().to_string_lossy() != addon_name {
+                if let Ok(sub_entries) = fs::read_dir(&path) {
+                    for sub_entry in sub_entries.filter_map(Result::ok) {
+                        if sub_entry.path().extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("toc")).unwrap_or(false) {
+                            if let Ok(content) = fs::read_to_string(sub_entry.path()) {
+                                for line in content.lines() {
+                                    let line = line.trim();
+                                    if line.starts_with("##") {
+                                        let rest = line.trim_start_matches('#').trim();
+                                        if let Some((key, val)) = rest.split_once(':') {
+                                            let key = key.trim().to_lowercase();
+                                            if key == "dependencies" || key == "requireddeps" {
+                                                let deps: Vec<String> = val.split(',').map(|s| s.trim().to_lowercase()).collect();
+                                                if deps.contains(&addon_name.to_lowercase()) {
+                                                    is_dep = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if is_dep {
+                            break;
+                        }
+                    }
+                }
+            }
+            if is_dep {
+                break;
+            }
+        }
+    }
+
     Ok(AddonMeta {
         name: addon_name,
         title,
@@ -97,12 +141,53 @@ pub fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<A
         notes,
         optional_deps,
         optional_deps_installed,
+        required_deps,
         toc_file: toc_file_name,
         readme,
         path: Some(addon_path_str),
         git_status: None,
         has_git,
+        is_dependency: Some(is_dep),
     })
+}
+
+#[tauri::command]
+pub fn check_addon_dependencies(base_path: String, addon_name: String) -> std::result::Result<Vec<String>, String> {
+    let meta = parse_toc(base_path.clone(), addon_name)?;
+    let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
+    let mut missing = Vec::new();
+    for dep in meta.required_deps {
+        let dep_path = addons_dir.join(&dep);
+        let dep_disabled_path = addons_dir.join(format!("{}-disabled", dep));
+        if !dep_path.exists() && !dep_disabled_path.exists() {
+            missing.push(dep);
+        }
+    }
+    Ok(missing)
+}
+
+#[tauri::command]
+pub fn check_orphaned_dependencies(base_path: String) -> std::result::Result<Vec<String>, String> {
+    let addons = get_addons(base_path.clone())?;
+    let mut all_reqs = std::collections::HashSet::new();
+    
+    for addon in &addons {
+        if let Ok(meta) = parse_toc(base_path.clone(), addon.clone()) {
+            for req in meta.required_deps {
+                all_reqs.insert(req.to_lowercase());
+            }
+        }
+    }
+    
+    let mut orphaned = Vec::new();
+    for addon in &addons {
+        if let Ok(meta) = parse_toc(base_path.clone(), addon.clone()) {
+            if meta.is_dependency == Some(true) && !all_reqs.contains(&addon.to_lowercase()) {
+                orphaned.push(addon.clone());
+            }
+        }
+    }
+    Ok(orphaned)
 }
 
 #[tauri::command]

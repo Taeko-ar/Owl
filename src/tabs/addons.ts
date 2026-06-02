@@ -22,8 +22,16 @@ export async function loadAddonsAndPatches() {
 
   if (!gamePath || !addonsList || !addonEmpty) return;
 
+  const activeTab = document.querySelector('.nav-tab.active')?.getAttribute('data-tab');
+
   setLoadingState('Loading addons and patches...', 20, null, activityProgress);
   try {
+    if (activeTab === 'mods') {
+      const patches = await invoke<string[]>('get_patches', { basePath: gamePath.value });
+      await loadPatches(patches, gamePath.value, statusFooter);
+      return;
+    }
+
     const addons = await invoke<string[]>('get_addons', { basePath: gamePath.value });
     const patches = await invoke<string[]>('get_patches', { basePath: gamePath.value });
 

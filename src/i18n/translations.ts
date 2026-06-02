@@ -219,6 +219,18 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.tooltip': 'Tooltip',
     'store.categories.twitchIntegration': 'Twitch Integration',
     'store.categories.unitFrames': 'Unit Frames',
+    'import.bundledTitle': 'Warning: Bundled Addon',
+    'import.bundledDesc':
+      'This archive contains multiple addon folders. Installing it will add the following directories to your AddOns folder:',
+    'import.bundledConfirm': 'Install All',
+    'import.dependencyTitle': 'Missing Dependencies Detected',
+    'import.dependencyDesc':
+      'The addon you installed requires the following missing dependencies. Would you like to automatically search and download them?',
+    'import.dependencyInstall': 'Download & Install',
+    'import.error.looseFiles':
+      'Error: Archive contains loose files at the root level. Rejecting installation.',
+    'import.error.noToc': 'Error: No .toc file found in the archive. Rejecting installation.',
+    'import.error.corrupted': 'Error: Archive is corrupted or empty. Rejecting installation.',
   },
   es: {
     'tabs.addons': 'Complementos',
@@ -441,6 +453,19 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.tooltip': 'Información sobre herramientas',
     'store.categories.twitchIntegration': 'Integración con Twitch',
     'store.categories.unitFrames': 'Marcos de unidad',
+    'import.bundledTitle': 'Advertencia: Complemento agrupado',
+    'import.bundledDesc':
+      'Este archivo contiene múltiples carpetas de complementos. Al instalarlo, se agregarán los siguientes directorios a su carpeta AddOns:',
+    'import.bundledConfirm': 'Instalar todo',
+    'import.dependencyTitle': 'Dependencias faltantes detectadas',
+    'import.dependencyDesc':
+      'El complemento que instaló requiere las siguientes dependencias faltantes. ¿Desea buscarlas y descargarlas automáticamente?',
+    'import.dependencyInstall': 'Descargar e instalar',
+    'import.error.looseFiles':
+      'Error: El archivo contiene archivos sueltos en el nivel raíz. Rechazando la instalación.',
+    'import.error.noToc':
+      'Error: No se encontró ningún archivo .toc en el archivo. Rechazando la instalación.',
+    'import.error.corrupted': 'Error: El archivo está dañado o vacío. Rechazando la instalación.',
   },
   pt: {
     'tabs.addons': 'Addons',
@@ -663,5 +688,18 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.tooltip': 'Dica de ferramenta',
     'store.categories.twitchIntegration': 'Integração com o Twitch',
     'store.categories.unitFrames': 'Quadros de unidade',
+    'import.bundledTitle': 'Aviso: Addon Empacotado',
+    'import.bundledDesc':
+      'Este arquivo contém várias pastas de addons. Instalar ele irá adicionar os seguintes diretórios à sua pasta AddOns:',
+    'import.bundledConfirm': 'Instalar Tudo',
+    'import.dependencyTitle': 'Dependências Faltando Detectadas',
+    'import.dependencyDesc':
+      'O addon instalado requer as seguintes dependências ausentes. Deseja pesquisar e baixá-las automaticamente?',
+    'import.dependencyInstall': 'Baixar & Instalar',
+    'import.error.looseFiles':
+      'Erro: O arquivo contém arquivos soltos no nível raiz. Rejeitando instalação.',
+    'import.error.noToc':
+      'Erro: Nenhum arquivo .toc foi encontrado no arquivo. Rejeitando instalação.',
+    'import.error.corrupted': 'Erro: O arquivo está corrompido ou vazio. Rejeitando instalação.',
   },
 };

@@ -5,6 +5,11 @@ import { CatalogAddon, AddonVersion, CurseForgeFile } from '../types';
 import { selectedAddons, getCurrentActiveSite, getDetectedGameVersion } from '../state';
 import { fetchGithubReleases } from './github';
 import { updateFooterState } from './index';
+import {
+  showBundledWarningModal,
+  parseAndTranslateImportError,
+  handlePostInstallDependencyCheck,
+} from '../ui/import';
 
 const getStatusFooter = () => document.getElementById('status') as HTMLElement;
 const getActivityProgress = () => document.getElementById('activityProgress') as HTMLElement | null;
@@ -159,7 +164,7 @@ export async function installSelectedAddons() {
         name: addon.title,
       });
 
-      await invoke<string>('download_and_extract_addon', {
+      const res = await invoke<string>('download_and_extract_addon', {
         basePath: gamePathInput().value,
         url: version.downloadUrl,
         sha1: version.sha1 || null,
@@ -172,10 +177,25 @@ export async function installSelectedAddons() {
         statusCell.innerHTML = `<span class="text-emerald-400 font-bold">✓ Installed</span>`;
       }
       successCount++;
+      await handlePostInstallDependencyCheck(gamePathInput().value, res);
     } catch (err) {
       console.error(err);
-      if (statusCell) {
-        statusCell.innerHTML = `<span class="text-red-400 font-bold" title="${err}">❌ Failed</span>`;
+      const errStr = String(err);
+      if (errStr.startsWith('BUNDLED:')) {
+        if (statusCell) {
+          statusCell.innerHTML = `<span class="text-yellow-400 font-bold">Bundled Warning</span>`;
+        }
+        const parts = errStr.substring(8).split('|');
+        const tempPath = parts[0];
+        const names = parts[1].split(',');
+        showBundledWarningModal(gamePathInput().value, tempPath, names, async () => {
+          window.dispatchEvent(new Event('reload-addons'));
+        });
+      } else {
+        const cleanErr = parseAndTranslateImportError(errStr);
+        if (statusCell) {
+          statusCell.innerHTML = `<span class="text-red-400 font-bold" title="${cleanErr}">❌ Failed</span>`;
+        }
       }
     }
   }

@@ -60,10 +60,18 @@ navTabs.forEach((tab) => {
       if (content.id === `${tabName}-tab`) {
         content.classList.remove('hidden');
         if (tabName === 'addons' || tabName === 'mods') {
-          await loadAddonsAndPatches();
+          const list = document.getElementById(
+            tabName === 'addons' ? 'addons-list' : 'patches-list'
+          );
+          if (!list || list.children.length === 0) {
+            await loadAddonsAndPatches();
+          }
         }
         if (tabName === 'tweaks') {
-          await loadConfig();
+          const tree = document.getElementById('config-tree');
+          if (!tree || tree.children.length === 0) {
+            await loadConfig();
+          }
         }
       } else {
         content.classList.add('hidden');

@@ -7,9 +7,11 @@ export interface AddonMeta {
   readme?: string;
   optional_deps?: string[];
   optional_deps_installed?: boolean[];
+  requiredDeps?: string[];
   enabled?: boolean;
   displayName?: string;
   path?: string;
+  isDependency?: boolean;
 }
 
 export interface AddonGitStatus {

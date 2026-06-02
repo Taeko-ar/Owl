@@ -184,7 +184,16 @@ export const TAURI_MOCK_SCRIPT = `
       case 'launch_game':
       case 'save_settings':
       case 'check_for_app_update':
+      case 'cleanup_temp_archive':
         return null;
+
+      case 'confirm_install_bundled':
+      case 'resolve_addon_dependency':
+        return 'Successfully imported: Dependency';
+
+      case 'check_addon_dependencies':
+      case 'check_orphaned_dependencies':
+        return [];
 
       case 'export_addon_list':
         return window.__OWL_MOCK_EXPORT_STRING__ || 'eyJ2IjoxLCJhZGRvbnMiOlt7Im5hbWUiOiJUZXN0QWRkb24iLCJlbmFibGVkIjp0cnVlLCJzb3VyY2UiOiJtYW51YWwifV19';
