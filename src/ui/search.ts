@@ -75,6 +75,7 @@ export function setupSearchHoverBehavior() {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const showInput = () => {
+      if (input.disabled) return;
       if (timer) clearTimeout(timer);
       input.classList.add('active');
     };

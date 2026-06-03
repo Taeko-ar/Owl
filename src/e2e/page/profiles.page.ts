@@ -7,6 +7,7 @@ export class ProfilesPage {
   readonly dropdown: Locator;
   readonly saveBtn: Locator;
   readonly updateBtn: Locator;
+  readonly addonProfilesBtn: Locator;
 
   readonly modal: Locator;
   readonly modalTitle: Locator;
@@ -24,6 +25,7 @@ export class ProfilesPage {
     this.dropdown = page.locator('#profileDropdown');
     this.saveBtn = page.locator('#saveProfileBtn');
     this.updateBtn = page.locator('#updateProfileBtn');
+    this.addonProfilesBtn = page.locator('#addonProfilesBtn');
 
     this.modal = page.locator('#profileModal');
     this.modalTitle = page.locator('#profileModalTitle');

@@ -76,9 +76,6 @@ pub fn save_settings(settings: LauncherSettings) -> std::result::Result<String, 
         active_profile: None,
     });
 
-    let old_path = current_settings.path.clone();
-    let new_path = settings.path.clone();
-
     current_settings.path = settings.path;
     if settings.window_size.is_some() {
         current_settings.window_size = settings.window_size;
@@ -90,30 +87,7 @@ pub fn save_settings(settings: LauncherSettings) -> std::result::Result<String, 
     let mut profiles_map = current_settings.addon_profiles_by_path.clone().unwrap_or_default();
     let mut active_map = current_settings.active_profile_by_path.clone().unwrap_or_default();
 
-    // Migration of profiles if game folder path changed
-    if let (Some(ref old_p), Some(ref new_p)) = (&old_path, &new_path) {
-        if old_p != new_p {
-            let old_canonical = fs::canonicalize(old_p)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| old_p.clone());
-            let new_canonical = fs::canonicalize(new_p)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| new_p.clone());
 
-            if old_canonical != new_canonical {
-                if let Some(old_profs) = profiles_map.get(&old_canonical).cloned() {
-                    if !profiles_map.contains_key(&new_canonical) {
-                        profiles_map.insert(new_canonical.clone(), old_profs);
-                    }
-                }
-                if let Some(old_act) = active_map.get(&old_canonical).cloned() {
-                    if !active_map.contains_key(&new_canonical) {
-                        active_map.insert(new_canonical.clone(), old_act);
-                    }
-                }
-            }
-        }
-    }
 
     if let Some(ref path) = current_settings.path {
         if let Ok(canonical) = fs::canonicalize(path) {

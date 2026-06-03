@@ -19,6 +19,7 @@ pub fn get_addons(base_path: String) -> std::result::Result<Vec<String>, String>
         .filter_map(Result::ok)
         .filter(|entry| entry.path().is_dir())
         .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| !name.starts_with('.'))
         .collect();
 
     addons.sort();

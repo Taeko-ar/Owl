@@ -38,4 +38,5 @@ pnpm-debug.log*
 /playwright/.cache/
 /playwright/.auth/
 /allure-results/
+.playwright-mcp
 

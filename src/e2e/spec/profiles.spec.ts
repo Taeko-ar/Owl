@@ -16,8 +16,9 @@ test.describe('Addon Profiles', () => {
     await expect(profiles.dropdown).toBeHidden();
 
     // 2. Open dropdown/modal
-    // Since there are no profiles, clicking selectorBtn directly triggers the save profile modal.
     await profiles.selectorBtn.click();
+    await expect(profiles.dropdown).toBeVisible();
+    await profiles.saveBtn.click();
     await expect(profiles.modal).toBeVisible();
 
     // 4. Fill modal input and confirm
@@ -101,12 +102,12 @@ test.describe('Addon Profiles', () => {
     await expect(confirmDeleteBtn).toBeVisible();
     await confirmDeleteBtn.click();
 
-    // Option should be gone, header back to Save Setup as Profile...
+    // Option should be gone, header hidden because active profile is null
     await expect(profiles.profileOption('Casual WoW')).toBeHidden();
-    await expect(profiles.headerName).toContainText('Save Setup as Profile...');
+    await expect(profiles.headerName).toBeHidden();
   });
 
-  test.skip('can save multiple profiles with different addon states and switch between them', async () => {
+  test('can save multiple profiles with different addon states and switch between them', async () => {
     // 1. Mock some addons using addInitScript so it survives page reloads
     await profiles.page.addInitScript(() => {
       // @ts-expect-error: Mock tauri variable
@@ -120,72 +121,57 @@ test.describe('Addon Profiles', () => {
     await expect(addons.addonToggle('DBM')).toBeChecked();
 
     // 2. Toggle off DBM and AtlasLoot (forcing click on hidden inputs)
-    await addons.addonToggle('AtlasLoot').click({ force: true });
-    await addons.addonToggle('DBM').click({ force: true });
+    await addons.addonToggle('AtlasLoot').evaluate((el) => {
+      (el as HTMLInputElement).click();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(addons.addonToggle('AtlasLoot-disabled')).toBeAttached();
+
+    await addons.addonToggle('DBM').evaluate((el) => {
+      (el as HTMLInputElement).click();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(addons.addonToggle('DBM-disabled')).toBeAttached();
 
     // 3. Save as "Profile A"
     await profiles.selectorBtn.click();
     await profiles.saveBtn.click();
     await profiles.modalInput.fill('Profile A');
-
-    // Mock save_addon_profile to record 'Profile A'
-    await profiles.page.addInitScript(() => {
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_PROFILES__ = [{ name: 'Profile A', enabledAddons: ['GTFO'] }];
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile A';
-    });
     await profiles.modalConfirm.click();
     await expect(profiles.headerName).toContainText('Profile A');
 
     // 4. Toggle DBM and AtlasLoot back ON
-    await addons.addonToggle('AtlasLoot').click({ force: true });
-    await addons.addonToggle('DBM').click({ force: true });
+    await addons.addonToggle('AtlasLoot-disabled').evaluate((el) => {
+      (el as HTMLInputElement).click();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(addons.addonToggle('AtlasLoot')).toBeAttached();
+
+    await addons.addonToggle('DBM-disabled').evaluate((el) => {
+      (el as HTMLInputElement).click();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(addons.addonToggle('DBM')).toBeAttached();
 
     // 5. Save as "Profile B"
     await profiles.selectorBtn.click();
     await profiles.saveBtn.click();
     await profiles.modalInput.fill('Profile B');
-
-    // Mock save_addon_profile to record both Profile A and Profile B
-    await profiles.page.addInitScript(() => {
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_PROFILES__ = [
-        { name: 'Profile A', enabledAddons: ['GTFO'] },
-        { name: 'Profile B', enabledAddons: ['GTFO', 'AtlasLoot', 'DBM'] },
-      ];
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile B';
-    });
     await profiles.modalConfirm.click();
     await expect(profiles.headerName).toContainText('Profile B');
 
     // 6. Switch to "Profile A"
     await profiles.selectorBtn.click();
-    // Mock apply response
-    await profiles.page.addInitScript(() => {
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile A';
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ADDONS__ = ['GTFO', 'AtlasLoot-disabled', 'DBM-disabled'];
-    });
     await profiles.profileOption('Profile A').click();
 
     // Verify it switched: active profile is Profile A, and addons are disabled
     await expect(profiles.headerName).toContainText('Profile A');
     await expect(addons.addonToggle('GTFO')).toBeChecked();
-    await expect(addons.addonToggle('AtlasLoot')).not.toBeChecked();
-    await expect(addons.addonToggle('DBM')).not.toBeChecked();
+    await expect(addons.addonToggle('AtlasLoot-disabled')).not.toBeChecked();
+    await expect(addons.addonToggle('DBM-disabled')).not.toBeChecked();
 
     // 7. Switch to "Profile B"
     await profiles.selectorBtn.click();
-    // Mock apply response
-    await profiles.page.addInitScript(() => {
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ACTIVE_PROFILE__ = 'Profile B';
-      // @ts-expect-error: Mock tauri variable
-      window.__OWL_MOCK_ADDONS__ = ['GTFO', 'AtlasLoot', 'DBM'];
-    });
     await profiles.profileOption('Profile B').click();
 
     // Verify active profile is Profile B, and all are enabled

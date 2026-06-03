@@ -67,7 +67,7 @@ export async function loadPatches(
             enable,
           });
           if (statusFooter) statusFooter.textContent = res;
-          showToast('Changes saved!');
+          showToast(getTranslation('toast.saved'));
           await loadAddonsAndPatches();
         } catch (err) {
           if (statusFooter) statusFooter.textContent = `Error: ${err}`;

@@ -91,14 +91,30 @@ fn main() {
             commands::store::get_curseforge_mod_description,
             commands::store::download_and_extract_addon,
             commands::system::install_update,
+            commands::system::check_update_details,
+            commands::system::get_app_version,
             commands::import::confirm_install_bundled,
             commands::import::cleanup_temp_archive,
             commands::addons::check_addon_dependencies,
             commands::addons::check_orphaned_dependencies,
-            commands::store::resolve_addon_dependency
+            commands::store::resolve_addon_dependency,
+            commands::torrent::start_torrent_download,
+            commands::torrent::cancel_torrent_download,
+            commands::torrent::pause_torrent_downloads,
+            commands::torrent::resume_torrent_downloads,
+            commands::torrent::get_active_downloads,
+            commands::torrent::pick_torrent_file,
+            commands::torrent::validate_game_path
         ])
         .setup(move |app| {
+            use tauri::Manager;
             let handle = app.handle().clone();
+            
+            let state = tauri::async_runtime::block_on(async {
+                commands::torrent::TorrentState::new().await
+            }).expect("failed to initialize torrent state");
+            app.manage(state);
+
             tauri::async_runtime::spawn(async move {
                 let _ = check_for_updates(handle).await;
             });

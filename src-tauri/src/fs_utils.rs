@@ -58,4 +58,14 @@ pub fn owl_http_client() -> std::result::Result<reqwest::Client, String> {
         .build()
         .map_err(|e| e.to_string())
 }
-
+pub fn try_cleanup_temp_install(addons_dir: &Path) {
+    let temp_parent = addons_dir.join(".temp_install");
+    if temp_parent.exists() {
+        if let Ok(entries) = fs::read_dir(&temp_parent) {
+            let count = entries.filter_map(Result::ok).count();
+            if count == 0 {
+                let _ = fs::remove_dir(&temp_parent);
+            }
+        }
+    }
+}

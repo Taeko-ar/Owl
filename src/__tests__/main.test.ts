@@ -25,6 +25,7 @@ vi.mock('@tauri-apps/api/event', () => {
 vi.mock('./../ui/settings', () => ({
   setupSettingsEvents: vi.fn(),
   loadSavedSettings: vi.fn().mockImplementation(() => Promise.resolve()),
+  checkLauncherUpdates: vi.fn(),
 }));
 
 vi.mock('./../store', () => ({

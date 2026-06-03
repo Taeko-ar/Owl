@@ -6,4 +6,5 @@ pub mod import;
 pub mod os;
 pub mod settings;
 pub mod window;
+pub mod torrent;
 pub mod system;

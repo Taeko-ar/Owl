@@ -130,6 +130,16 @@ pub fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Res
     } else if ext == "7z" {
         fs::create_dir_all(extract_dir).map_err(|e| e.to_string())?;
         sevenz_rust::decompress_file(file_path, extract_dir).map_err(|e| e.to_string())?;
+    } else if ext == "rar" {
+        fs::create_dir_all(extract_dir).map_err(|e| e.to_string())?;
+        let mut archive = unrar::Archive::new(&file_path.to_string_lossy().to_string())
+            .open_for_processing()
+            .map_err(|e| e.to_string())?;
+        while let Ok(Some(archive_at_header)) = archive.read_header() {
+            archive = archive_at_header
+                .extract_to(&extract_dir.to_string_lossy().to_string())
+                .map_err(|e| e.to_string())?;
+        }
     } else {
         return Err(format!("Unsupported archive type: {}", ext));
     }

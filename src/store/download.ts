@@ -121,13 +121,28 @@ export async function installSelectedAddons() {
 
   if (itemsToDownload.length === 0) return;
 
-  (document.getElementById('store-modal-confirm') as HTMLButtonElement).disabled = true;
+  const confirmBtn = document.getElementById('store-modal-confirm') as HTMLButtonElement;
+  confirmBtn.disabled = true;
+  const originalConfirmText = confirmBtn.textContent || 'Confirm & Install';
+  confirmBtn.textContent = 'Downloading...';
+
+  const storeReviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement | null;
+  let originalReviewText = '';
+  if (storeReviewBtn) {
+    storeReviewBtn.disabled = true;
+    originalReviewText = storeReviewBtn.textContent || '';
+    storeReviewBtn.textContent = 'Downloading...';
+  }
+
   const cancelBtn = document.getElementById('store-modal-cancel') as HTMLButtonElement | null;
   if (cancelBtn) cancelBtn.disabled = true;
 
   setLoadingState('Downloading addons...', 10, getStatusFooter(), getActivityProgress());
 
   let successCount = 0;
+  // Collect (basePath, successMessage) pairs for dep checks — run sequentially after all downloads.
+  const pendingDepChecks: { basePath: string; res: string }[] = [];
+
   for (let i = 0; i < itemsToDownload.length; i++) {
     const { key, addon, version } = itemsToDownload[i];
     const row = document.querySelector(`tr[data-key="${key}"]`);
@@ -174,10 +189,11 @@ export async function installSelectedAddons() {
       });
 
       if (statusCell) {
-        statusCell.innerHTML = `<span class="text-emerald-400 font-bold">✓ Installed</span>`;
+        statusCell.innerHTML = `<span class="text-emerald-400 font-bold">✓ Complete</span>`;
       }
       successCount++;
-      await handlePostInstallDependencyCheck(gamePathInput().value, res);
+      // Queue dep check — do NOT show modal yet.
+      pendingDepChecks.push({ basePath: gamePathInput().value, res });
     } catch (err) {
       console.error(err);
       const errStr = String(err);
@@ -188,9 +204,25 @@ export async function installSelectedAddons() {
         const parts = errStr.substring(8).split('|');
         const tempPath = parts[0];
         const names = parts[1].split(',');
-        showBundledWarningModal(gamePathInput().value, tempPath, names, async () => {
-          window.dispatchEvent(new Event('reload-addons'));
-        });
+        const res = await showBundledWarningModal(
+          gamePathInput().value,
+          tempPath,
+          names,
+          async () => {
+            window.dispatchEvent(new Event('reload-addons'));
+          }
+        );
+        if (res) {
+          if (statusCell) {
+            statusCell.innerHTML = `<span class="text-emerald-400 font-bold">✓ Complete</span>`;
+          }
+          successCount++;
+          pendingDepChecks.push({ basePath: gamePathInput().value, res });
+        } else {
+          if (statusCell) {
+            statusCell.innerHTML = `<span class="text-red-400 font-bold">❌ Cancelled</span>`;
+          }
+        }
       } else {
         const cleanErr = parseAndTranslateImportError(errStr);
         if (statusCell) {
@@ -203,14 +235,50 @@ export async function installSelectedAddons() {
   getStatusFooter().textContent = `Completed downloading. Installed ${successCount} of ${itemsToDownload.length} successfully.`;
   showToast(`Installed ${successCount} addons!`);
 
-  (document.getElementById('store-modal-confirm') as HTMLButtonElement).disabled = false;
   const cancelBtn2 = document.getElementById('store-modal-cancel') as HTMLButtonElement | null;
   if (cancelBtn2) cancelBtn2.disabled = false;
 
-  setTimeout(() => {
-    document.getElementById('storeDownloadModal')?.classList.add('hidden');
-    document.getElementById('storeModal')?.classList.add('hidden');
-    clearLoadingState(getStatusFooter(), getActivityProgress());
-    window.dispatchEvent(new Event('reload-addons'));
-  }, 1500);
+  setTimeout(async () => {
+    const storeDownloadModal = document.getElementById('storeDownloadModal');
+    const storeModal = document.getElementById('storeModal');
+
+    // Add transitions for smooth fade out
+    if (storeDownloadModal) {
+      storeDownloadModal.style.transition = 'opacity 0.3s ease';
+      storeDownloadModal.style.opacity = '0';
+    }
+    if (storeModal) {
+      storeModal.style.transition = 'opacity 0.3s ease';
+      storeModal.style.opacity = '0';
+    }
+
+    setTimeout(async () => {
+      if (storeDownloadModal) {
+        storeDownloadModal.classList.add('hidden');
+        storeDownloadModal.style.opacity = '';
+        storeDownloadModal.style.transition = '';
+      }
+      if (storeModal) {
+        storeModal.classList.add('hidden');
+        storeModal.style.opacity = '';
+        storeModal.style.transition = '';
+      }
+
+      // Re-enable/reset button state here after modal is fully closed and reset
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = originalConfirmText;
+      if (storeReviewBtn) {
+        storeReviewBtn.disabled = false;
+        storeReviewBtn.textContent = originalReviewText;
+      }
+
+      clearLoadingState(getStatusFooter(), getActivityProgress());
+      window.dispatchEvent(new Event('reload-addons'));
+
+      // Show dependency modals one at a time — wait for user to accept each before showing the next.
+      for (const { basePath, res } of pendingDepChecks) {
+        await handlePostInstallDependencyCheck(basePath, res);
+      }
+    }, 300);
+  }, 1200);
 }

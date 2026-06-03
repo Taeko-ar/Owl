@@ -11,9 +11,6 @@ export const test = base.extend<{
   setMockPatches: (patches: string[]) => Promise<void>;
 }>({
   appPage: async ({ page }, use) => {
-    page.on('console', (msg) => {
-      console.log(`[BROWSER] [${msg.type()}] ${msg.text()}`);
-    });
     await page.addInitScript(TAURI_MOCK_SCRIPT);
     await page.goto('/');
 

@@ -182,7 +182,7 @@ export async function loadAddonsAndPatches() {
               enable,
             });
             statusFooter.textContent = res;
-            showToast('Changes saved!');
+            showToast(getTranslation('toast.saved'));
             await loadAddonsAndPatches();
           } catch (err) {
             statusFooter.textContent = `Error: ${err}`;
@@ -309,9 +309,6 @@ export function setupAddonProfileEvents() {
 
   const profileSelectorBtn = document.getElementById('profileSelectorBtn');
   const profileDropdown = document.getElementById('profileDropdown');
-  const saveProfileBtn = document.getElementById('saveProfileBtn');
-  const updateProfileBtn = document.getElementById('updateProfileBtn');
-
   const profileModal = document.getElementById('profileModal');
   const profileModalTitle = document.getElementById('profileModalTitle');
   const profileModalInput = document.getElementById('profileModalInput') as HTMLInputElement;
@@ -320,7 +317,6 @@ export function setupAddonProfileEvents() {
   const confirmProfileModal = document.getElementById('confirmProfileModal');
 
   const gamePath = document.getElementById('gamePath') as HTMLInputElement;
-  const statusFooter = document.getElementById('status') as HTMLElement;
 
   if (
     !profileSelectorBtn ||
@@ -332,21 +328,9 @@ export function setupAddonProfileEvents() {
   )
     return;
 
-  profileSelectorBtn.addEventListener('click', async (e) => {
+  profileSelectorBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const settings = await invoke<LauncherSettings | null>('load_settings').catch(() => null);
-    const profiles = settings?.addonProfiles || [];
-    if (profiles.length === 0) {
-      activeModalAction = 'save';
-      if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
-      profileModalInput.value = '';
-      profileModalError.classList.add('hidden');
-      profileModal.classList.remove('hidden');
-      profileDropdown.classList.add('hidden');
-      profileModalInput.focus();
-    } else {
-      profileDropdown.classList.toggle('hidden');
-    }
+    profileDropdown.classList.toggle('hidden');
   });
 
   document.addEventListener('click', () => {
@@ -369,43 +353,8 @@ export function setupAddonProfileEvents() {
     }
   });
 
-  saveProfileBtn?.addEventListener('click', () => {
-    activeModalAction = 'save';
-    if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
-    profileModalInput.value = '';
-    profileModalError.classList.add('hidden');
-    profileModal.classList.remove('hidden');
-    profileDropdown.classList.add('hidden');
-    profileModalInput.focus();
-  });
-
   cancelProfileModal?.addEventListener('click', () => {
     profileModal.classList.add('hidden');
-  });
-
-  updateProfileBtn?.addEventListener('click', async () => {
-    const settings = await invoke<LauncherSettings>('load_settings');
-    const activeProfileName = settings.activeProfile;
-    if (!activeProfileName) return;
-
-    try {
-      const addons = await invoke<string[]>('get_addons', { basePath: gamePath.value });
-      const visibleAddons = addons.filter((a) => !a.startsWith('Blizzard_'));
-      const enabledAddons = visibleAddons
-        .filter((name) => !name.endsWith('-disabled'))
-        .map((name) => name.replace(/-disabled$/, ''));
-
-      await invoke('save_addon_profile', {
-        basePath: gamePath.value,
-        name: activeProfileName,
-        enabledAddons,
-      });
-      showToast('Profile updated!');
-      profileDropdown.classList.add('hidden');
-      await loadAddonsAndPatches();
-    } catch (err) {
-      statusFooter.textContent = `Error: ${err}`;
-    }
   });
 
   confirmProfileModal?.addEventListener('click', async () => {
@@ -443,7 +392,7 @@ export function setupAddonProfileEvents() {
           name,
           enabledAddons,
         });
-        showToast('Profile created!');
+        showToast(getTranslation('addons.toast.profileCreated'));
         profileModal.classList.add('hidden');
         await loadAddonsAndPatches();
       } catch (err) {
@@ -459,12 +408,11 @@ async function updateProfileDropdown(
   activeProfile: string | null,
   rows: { name: string; enabled: boolean }[]
 ) {
-  const profileList = document.getElementById('profileList');
+  const profileDropdown = document.getElementById('profileDropdown');
   const activeProfileHeaderName = document.getElementById('activeProfileHeaderName');
   const activeProfileHeaderContainer = document.getElementById('activeProfileHeaderContainer');
-  const updateProfileBtn = document.getElementById('updateProfileBtn');
 
-  if (!profileList) return;
+  if (!profileDropdown) return;
 
   let isModified = false;
   if (activeProfile && activeProfile !== 'All Addons') {
@@ -535,9 +483,7 @@ async function updateProfileDropdown(
       activeProfileHeaderName.classList.add('text-sky-400');
       activeProfileHeaderContainer?.classList.remove('hidden');
     } else {
-      activeProfileHeaderName.textContent = getTranslation('addons.profileSave');
-      activeProfileHeaderName.classList.remove('text-sky-400');
-      activeProfileHeaderContainer?.classList.remove('hidden');
+      activeProfileHeaderContainer?.classList.add('hidden');
     }
   }
 
@@ -547,24 +493,48 @@ async function updateProfileDropdown(
       activeProfileHeaderNameMods.classList.add('text-sky-400');
       activeProfileHeaderContainerMods?.classList.remove('hidden');
     } else {
-      activeProfileHeaderNameMods.textContent = getTranslation('addons.profileSave');
-      activeProfileHeaderNameMods.classList.remove('text-sky-400');
-      activeProfileHeaderContainerMods?.classList.remove('hidden');
+      activeProfileHeaderContainerMods?.classList.add('hidden');
     }
   }
 
-  if (activeProfile) {
-    updateProfileBtn?.classList.toggle('hidden', !isModified);
-  } else {
-    updateProfileBtn?.classList.add('hidden');
+  if (profiles.length === 0) {
+    profileDropdown.innerHTML = `
+      <div class="py-1">
+        <button
+          id="saveProfileBtn"
+          class="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-100 text-xs transition-colors duration-150 block cursor-pointer outline-none font-semibold"
+        >
+          <span>Save Setup as Profile...</span>
+        </button>
+      </div>
+    `;
+
+    document.getElementById('saveProfileBtn')?.addEventListener('click', () => {
+      activeModalAction = 'save';
+      const profileModal = document.getElementById('profileModal');
+      const profileModalTitle = document.getElementById('profileModalTitle');
+      const profileModalInput = document.getElementById('profileModalInput') as HTMLInputElement;
+      const profileModalError = document.getElementById('profileModalError');
+      if (profileModal) {
+        if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
+        if (profileModalInput) {
+          profileModalInput.value = '';
+          profileModalInput.focus();
+        }
+        profileModalError?.classList.add('hidden');
+        profileModal.classList.remove('hidden');
+        profileDropdown.classList.add('hidden');
+      }
+    });
+
+    return;
   }
 
-  let html = '';
-
+  let listHtml = '';
   for (const prof of profiles) {
     const isActive = prof.name === activeProfile;
-    html += `
-      <div class="profile-item-row flex items-center justify-between px-4 py-1.5 hover:bg-slate-800/60 text-xs transition-colors duration-150 w-full group relative" data-profile="${escapeHtml(prof.name)}">
+    listHtml += `
+      <div class="profile-item-row flex items-center justify-between px-2 py-1.5 hover:bg-slate-800/60 text-xs transition-colors duration-150 w-full group relative" data-profile="${escapeHtml(prof.name)}">
         <!-- Normal view -->
         <div class="profile-normal-view flex items-center justify-between w-full min-w-0">
           <span class="profile-option-name truncate cursor-pointer flex-1 py-0.5 ${isActive ? 'text-sky-400 font-semibold' : 'text-slate-100'}" data-profile="${escapeHtml(prof.name)}">
@@ -601,128 +571,199 @@ async function updateProfileDropdown(
     `;
   }
 
-  profileList.innerHTML = html;
+  profileDropdown.innerHTML = `
+    <div class="py-1">
+      <button
+        id="saveProfileBtn"
+        class="w-full text-left px-4 py-2 hover:bg-slate-800 text-slate-100 text-xs transition-colors duration-150 block cursor-pointer outline-none font-semibold"
+      >
+        <span>Save Setup as Profile...</span>
+      </button>
+      
+      <button
+        id="updateProfileBtn"
+        class="hidden w-full text-left px-4 py-2 hover:bg-slate-800 text-sky-400 font-semibold hover:text-sky-300 text-xs transition-colors duration-150 block cursor-pointer outline-none font-semibold"
+      >
+        Update Active Profile
+      </button>
 
-  // Wiring custom profile rows
-  profileList.querySelectorAll('.profile-item-row').forEach((row) => {
-    const profileName = row.getAttribute('data-profile') || '';
-    const normalView = row.querySelector('.profile-normal-view') as HTMLElement;
-    const editView = row.querySelector('.profile-edit-view') as HTMLElement;
-    const deleteView = row.querySelector('.profile-delete-view') as HTMLElement;
+      <div class="border-t border-slate-800 my-1"></div>
 
-    const nameLabel = row.querySelector('.profile-option-name') as HTMLElement;
-    const renameBtn = row.querySelector('.rename-profile-btn') as HTMLElement;
-    const deleteBtn = row.querySelector('.delete-profile-btn') as HTMLElement;
+      <div id="profileList" class="flex flex-col">
+        ${listHtml}
+      </div>
+    </div>
+  `;
 
-    const editInput = row.querySelector('.profile-edit-input') as HTMLInputElement;
-    const confirmRenameBtn = row.querySelector('.confirm-rename-btn') as HTMLElement;
-    const cancelRenameBtn = row.querySelector('.cancel-rename-btn') as HTMLElement;
-
-    const confirmDeleteBtn = row.querySelector('.confirm-delete-btn') as HTMLElement;
-    const cancelDeleteBtn = row.querySelector('.cancel-delete-btn') as HTMLElement;
-
-    const gamePath = document.getElementById('gamePath') as HTMLInputElement;
-    const statusFooter = document.getElementById('status') as HTMLElement;
-
-    // Click label to apply profile
-    nameLabel.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      try {
-        await invoke('apply_addon_profile', { basePath: gamePath.value, name: profileName });
-        statusFooter.textContent = `Applied profile: ${profileName}`;
-        showToast('Profile applied!');
-        document.getElementById('profileDropdown')?.classList.add('hidden');
-        await loadAddonsAndPatches();
-      } catch (err) {
-        statusFooter.textContent = `Error: ${err}`;
+  document.getElementById('saveProfileBtn')?.addEventListener('click', () => {
+    activeModalAction = 'save';
+    const profileModal = document.getElementById('profileModal');
+    const profileModalTitle = document.getElementById('profileModalTitle');
+    const profileModalInput = document.getElementById('profileModalInput') as HTMLInputElement;
+    const profileModalError = document.getElementById('profileModalError');
+    if (profileModal) {
+      if (profileModalTitle) profileModalTitle.textContent = getTranslation('addons.profileSave');
+      if (profileModalInput) {
+        profileModalInput.value = '';
+        profileModalInput.focus();
       }
-    });
-
-    // Rename button -> edit mode
-    renameBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      normalView.classList.add('hidden');
-      editView.classList.remove('hidden');
-      editInput.focus();
-      editInput.select();
-    });
-
-    cancelRenameBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      editView.classList.add('hidden');
-      normalView.classList.remove('hidden');
-    });
-
-    const performRename = async () => {
-      const newName = editInput.value.trim();
-      if (!newName) {
-        showToast(getTranslation('addons.profileErrorEmpty'));
-        return;
-      }
-      if (newName.length > 32) {
-        showToast(getTranslation('addons.profileErrorTooLong'));
-        return;
-      }
-
-      const settings = await invoke<LauncherSettings | null>('load_settings').catch(() => null);
-      const profiles = settings?.addonProfiles || [];
-      if (
-        profileName.toLowerCase() !== newName.toLowerCase() &&
-        profiles.some((p) => p.name.toLowerCase() === newName.toLowerCase())
-      ) {
-        showToast(getTranslation('addons.profileErrorDuplicate'));
-        return;
-      }
-
-      try {
-        await invoke('rename_addon_profile', { oldName: profileName, newName });
-        showToast('Profile renamed!');
-        await loadAddonsAndPatches();
-      } catch (err) {
-        showToast(String(err));
-      }
-    };
-
-    confirmRenameBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      performRename();
-    });
-
-    editInput.addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === 'Enter') {
-        performRename();
-      } else if (e.key === 'Escape') {
-        cancelRenameBtn.click();
-      }
-    });
-
-    editInput.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-
-    // Delete button -> confirmation mode
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      normalView.classList.add('hidden');
-      deleteView.classList.remove('hidden');
-    });
-
-    cancelDeleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteView.classList.add('hidden');
-      normalView.classList.remove('hidden');
-    });
-
-    confirmDeleteBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      try {
-        await invoke('delete_addon_profile', { name: profileName });
-        showToast('Profile deleted!');
-        await loadAddonsAndPatches();
-      } catch (err) {
-        statusFooter.textContent = `Error: ${err}`;
-      }
-    });
+      profileModalError?.classList.add('hidden');
+      profileModal.classList.remove('hidden');
+      profileDropdown.classList.add('hidden');
+    }
   });
+
+  const updateProfileBtn = document.getElementById('updateProfileBtn');
+  if (updateProfileBtn) {
+    updateProfileBtn.classList.toggle('hidden', !isModified);
+    updateProfileBtn.addEventListener('click', async () => {
+      const settings = await invoke<LauncherSettings>('load_settings');
+      const activeProfileName = settings.activeProfile;
+      if (!activeProfileName) return;
+
+      const gamePath = document.getElementById('gamePath') as HTMLInputElement;
+      const statusFooter = document.getElementById('status') as HTMLElement;
+
+      try {
+        const addons = await invoke<string[]>('get_addons', { basePath: gamePath.value });
+        const visibleAddons = addons.filter((a) => !a.startsWith('Blizzard_'));
+        const enabledAddons = visibleAddons
+          .filter((name) => !name.endsWith('-disabled'))
+          .map((name) => name.replace(/-disabled$/, ''));
+
+        await invoke('save_addon_profile', {
+          basePath: gamePath.value,
+          name: activeProfileName,
+          enabledAddons,
+        });
+        showToast(getTranslation('addons.toast.profileUpdated'));
+        profileDropdown.classList.add('hidden');
+        await loadAddonsAndPatches();
+      } catch (err) {
+        if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+      }
+    });
+  }
+
+  const profileList = document.getElementById('profileList');
+  if (profileList) {
+    profileList.querySelectorAll('.profile-item-row').forEach((row) => {
+      const profileName = row.getAttribute('data-profile') || '';
+      const normalView = row.querySelector('.profile-normal-view') as HTMLElement;
+      const editView = row.querySelector('.profile-edit-view') as HTMLElement;
+      const deleteView = row.querySelector('.profile-delete-view') as HTMLElement;
+
+      const nameLabel = row.querySelector('.profile-option-name') as HTMLElement;
+      const renameBtn = row.querySelector('.rename-profile-btn') as HTMLElement;
+      const deleteBtn = row.querySelector('.delete-profile-btn') as HTMLElement;
+
+      const editInput = row.querySelector('.profile-edit-input') as HTMLInputElement;
+      const confirmRenameBtn = row.querySelector('.confirm-rename-btn') as HTMLElement;
+      const cancelRenameBtn = row.querySelector('.cancel-rename-btn') as HTMLElement;
+
+      const confirmDeleteBtn = row.querySelector('.confirm-delete-btn') as HTMLElement;
+      const cancelDeleteBtn = row.querySelector('.cancel-delete-btn') as HTMLElement;
+
+      const gamePath = document.getElementById('gamePath') as HTMLInputElement;
+      const statusFooter = document.getElementById('status') as HTMLElement;
+
+      nameLabel.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await invoke('apply_addon_profile', { basePath: gamePath.value, name: profileName });
+          statusFooter.textContent = `Applied profile: ${profileName}`;
+          showToast(getTranslation('addons.toast.profileApplied'));
+          profileDropdown.classList.add('hidden');
+          await loadAddonsAndPatches();
+        } catch (err) {
+          statusFooter.textContent = `Error: ${err}`;
+        }
+      });
+
+      renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        normalView.classList.add('hidden');
+        editView.classList.remove('hidden');
+        editInput.focus();
+        editInput.select();
+      });
+
+      cancelRenameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        editView.classList.add('hidden');
+        normalView.classList.remove('hidden');
+      });
+
+      const performRename = async () => {
+        const newName = editInput.value.trim();
+        if (!newName) {
+          showToast(getTranslation('addons.profileErrorEmpty'));
+          return;
+        }
+        if (newName.length > 32) {
+          showToast(getTranslation('addons.profileErrorTooLong'));
+          return;
+        }
+
+        const settings = await invoke<LauncherSettings | null>('load_settings').catch(() => null);
+        const profiles = settings?.addonProfiles || [];
+        if (
+          profileName.toLowerCase() !== newName.toLowerCase() &&
+          profiles.some((p) => p.name.toLowerCase() === newName.toLowerCase())
+        ) {
+          showToast(getTranslation('addons.profileErrorDuplicate'));
+          return;
+        }
+
+        try {
+          await invoke('rename_addon_profile', { oldName: profileName, newName });
+          showToast(getTranslation('addons.toast.profileRenamed'));
+          await loadAddonsAndPatches();
+        } catch (err) {
+          showToast(String(err));
+        }
+      };
+
+      confirmRenameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        performRename();
+      });
+
+      editInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          performRename();
+        } else if (e.key === 'Escape') {
+          cancelRenameBtn.click();
+        }
+      });
+
+      editInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        normalView.classList.add('hidden');
+        deleteView.classList.remove('hidden');
+      });
+
+      cancelDeleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteView.classList.add('hidden');
+        normalView.classList.remove('hidden');
+      });
+
+      confirmDeleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await invoke('delete_addon_profile', { name: profileName });
+          showToast(getTranslation('addons.toast.profileDeleted'));
+          await loadAddonsAndPatches();
+        } catch (err) {
+          statusFooter.textContent = `Error: ${err}`;
+        }
+      });
+    });
+  }
 }

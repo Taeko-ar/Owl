@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getTranslation } from '../i18n/index';
 import { showToast, escapeHtml } from '../utils';
 import { CurseForgeFile } from '../types';
+import { loadAddonsAndPatches } from '../tabs/addons';
 
 export interface ExportedAddon {
   name: string;
@@ -130,7 +131,7 @@ export async function handleImportString() {
 
     importPreviewModal?.classList.remove('hidden');
   } catch (err) {
-    showToast(`Import error: ${err}`);
+    showToast(getTranslation('export.status.error', { error: String(err) }));
   }
 }
 
@@ -161,7 +162,7 @@ export function setupImportExportEvents() {
   exportBtn?.addEventListener('click', async () => {
     if (!gamePathInput || !gamePathInput.value) return;
     try {
-      if (statusFooter) statusFooter.textContent = 'Generating export string...';
+      if (statusFooter) statusFooter.textContent = getTranslation('export.status.generating');
       const b64 = await invoke<string>('export_addon_list', { basePath: gamePathInput.value });
       if (statusFooter) statusFooter.textContent = getTranslation('status.ready');
 
@@ -185,8 +186,9 @@ export function setupImportExportEvents() {
 
       exportModal?.classList.remove('hidden');
     } catch (err) {
-      if (statusFooter) statusFooter.textContent = `Export error: ${err}`;
-      showToast(`Export error: ${err}`);
+      if (statusFooter)
+        statusFooter.textContent = getTranslation('export.status.error', { error: String(err) });
+      showToast(getTranslation('export.status.error', { error: String(err) }));
     }
   });
 
@@ -200,7 +202,7 @@ export function setupImportExportEvents() {
     if (exportStringArea) {
       exportStringArea.select();
       navigator.clipboard.writeText(exportStringArea.value).then(() => {
-        showToast('Copied to clipboard!');
+        showToast(getTranslation('toast.copiedToClipboard'));
       });
     }
   });
@@ -210,7 +212,7 @@ export function setupImportExportEvents() {
     if (exportStringArea) {
       exportStringArea.select();
       navigator.clipboard.writeText(exportStringArea.value).then(() => {
-        showToast('Copied to clipboard!');
+        showToast(getTranslation('toast.copiedToClipboard'));
       });
     }
   });
@@ -219,7 +221,7 @@ export function setupImportExportEvents() {
   exportCopyManualBtn?.addEventListener('click', () => {
     if (exportManualList && exportManualList.textContent) {
       navigator.clipboard.writeText(exportManualList.textContent).then(() => {
-        showToast('Manual list copied!');
+        showToast(getTranslation('toast.manualListCopied'));
       });
     }
   });
@@ -227,7 +229,7 @@ export function setupImportExportEvents() {
   importCopyManualBtn?.addEventListener('click', () => {
     if (importManualList && importManualList.textContent) {
       navigator.clipboard.writeText(importManualList.textContent).then(() => {
-        showToast('Manual list copied!');
+        showToast(getTranslation('toast.manualListCopied'));
       });
     }
   });
@@ -258,13 +260,13 @@ export function setupImportExportEvents() {
     );
 
     if (restorable.length === 0) {
-      showToast('No restorable addons to import!');
+      showToast(getTranslation('import.toast.noRestorable'));
       return;
     }
 
     const total = restorable.length;
     if (statusFooter) {
-      statusFooter.textContent = `Starting import of ${total} addons...`;
+      statusFooter.textContent = getTranslation('import.status.starting', { total: String(total) });
     }
 
     const activityProgress = document.getElementById('activityProgress');
@@ -360,13 +362,18 @@ export function setupImportExportEvents() {
     }
 
     const summary =
-      `Import finished. Success: ${successCount}. Fail: ${failedCount}.` +
-      (failedCount > 0 ? ` Failed: ${failedList.join(', ')}` : '');
+      getTranslation('import.status.finished', {
+        success: String(successCount),
+        fail: String(failedCount),
+      }) +
+      (failedCount > 0
+        ? getTranslation('import.status.failedList', { list: failedList.join(', ') })
+        : '');
 
     if (statusFooter) {
       statusFooter.textContent = summary;
     }
-    showToast(`Import completed: ${successCount} installed.`);
+    showToast(getTranslation('import.toast.completed', { count: String(successCount) }));
 
     setTimeout(() => {
       if (activityProgress) {
@@ -377,7 +384,6 @@ export function setupImportExportEvents() {
       }
     }, 4000);
 
-    const { loadAddonsAndPatches } = await import('../main');
     await loadAddonsAndPatches();
   });
 }

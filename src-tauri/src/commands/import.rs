@@ -147,6 +147,7 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
             Ok(p) => p,
             Err(_e) => {
                 let _ = fs::remove_dir_all(&extract_dir);
+                crate::fs_utils::try_cleanup_temp_install(&addons_dir);
                 return Err(format!("CORRUPTED:{}", filename));
             }
         };
@@ -166,6 +167,7 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
                     }
                 }
                 let _ = fs::remove_dir_all(&extract_dir);
+                crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             }
             ArchiveValidation::Bundled { addon_dirs } => {
                 let names: Vec<String> = addon_dirs.iter().filter_map(|d| d.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())).collect();
@@ -173,14 +175,17 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
             }
             ArchiveValidation::HasLooseFiles { filename } => {
                 let _ = fs::remove_dir_all(&extract_dir);
+                crate::fs_utils::try_cleanup_temp_install(&addons_dir);
                 return Err(format!("LOOSE_FILES:{}", filename));
             }
             ArchiveValidation::NoTocFound { filename } => {
                 let _ = fs::remove_dir_all(&extract_dir);
+                crate::fs_utils::try_cleanup_temp_install(&addons_dir);
                 return Err(format!("NO_TOC:{}", filename));
             }
             ArchiveValidation::Corrupted { filename } => {
                 let _ = fs::remove_dir_all(&extract_dir);
+                crate::fs_utils::try_cleanup_temp_install(&addons_dir);
                 return Err(format!("CORRUPTED:{}", filename));
             }
         }
@@ -190,7 +195,11 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
 }
 
 #[tauri::command]
-pub fn confirm_install_bundled(base_path: String, temp_dir_path: String) -> std::result::Result<String, String> {
+pub fn confirm_install_bundled(
+    base_path: String,
+    temp_dir_path: String,
+    allowed_dirs: Option<Vec<String>>,
+) -> std::result::Result<String, String> {
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
     let temp_dir = PathBuf::from(&temp_dir_path);
     if !temp_dir.exists() {
@@ -210,6 +219,12 @@ pub fn confirm_install_bundled(base_path: String, temp_dir_path: String) -> std:
 
             for dir in addon_dirs {
                 if let Some(dir_name) = dir.file_name().and_then(|s| s.to_str()) {
+                    if let Some(ref allowed) = allowed_dirs {
+                        if !allowed.contains(&dir_name.to_string()) {
+                            continue;
+                        }
+                    }
+
                     let target_dir = addons_dir.join(dir_name);
                     if target_dir.exists() {
                         fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
@@ -224,20 +239,43 @@ pub fn confirm_install_bundled(base_path: String, temp_dir_path: String) -> std:
             }
         }
         _ => {
-            let _ = fs::remove_dir_all(&temp_dir);
+            let mut target_to_remove = temp_dir.clone();
+            if temp_dir.file_name().and_then(|s| s.to_str()) == Some("content") {
+                if let Some(parent) = temp_dir.parent() {
+                    target_to_remove = parent.to_path_buf();
+                }
+            }
+            let _ = fs::remove_dir_all(&target_to_remove);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err("Invalid archive content during confirmation".into());
         }
     }
 
-    let _ = fs::remove_dir_all(&temp_dir);
+    let mut target_to_remove = temp_dir.clone();
+    if temp_dir.file_name().and_then(|s| s.to_str()) == Some("content") {
+        if let Some(parent) = temp_dir.parent() {
+            target_to_remove = parent.to_path_buf();
+        }
+    }
+    let _ = fs::remove_dir_all(&target_to_remove);
+    crate::fs_utils::try_cleanup_temp_install(&addons_dir);
     Ok(format!("Imported addon(s): {}", imported.join(", ")))
 }
 
 #[tauri::command]
 pub fn cleanup_temp_archive(temp_dir_path: String) -> std::result::Result<(), String> {
     let temp_dir = PathBuf::from(&temp_dir_path);
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+    let mut target_to_remove = temp_dir.clone();
+    if temp_dir.file_name().and_then(|s| s.to_str()) == Some("content") {
+        if let Some(parent) = temp_dir.parent() {
+            target_to_remove = parent.to_path_buf();
+        }
+    }
+    if target_to_remove.exists() {
+        fs::remove_dir_all(&target_to_remove).map_err(|e| e.to_string())?;
+    }
+    if let Some(parent) = target_to_remove.parent() {
+        crate::fs_utils::try_cleanup_temp_install(parent);
     }
     Ok(())
 }

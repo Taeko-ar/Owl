@@ -101,6 +101,17 @@ jobs:
         id: get_version
         run: node -e "const fs = require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + require('./package.json').version + '\n')"
 
+      - name: Read Changelog
+        id: changelog
+        shell: node {0}
+        run: |
+          const fs = require('fs');
+          let content = 'OWL release.';
+          if (fs.existsSync('CHANGELOG.md')) {
+            content = fs.readFileSync('CHANGELOG.md', 'utf8').trim();
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${content}\nEOF\n`);
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -126,7 +137,7 @@ jobs:
         with:
           tagName: v${{ steps.get_version.outputs.version }}
           releaseName: 'Release v${{ steps.get_version.outputs.version }}'
-          releaseBody: 'OWL release.'
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

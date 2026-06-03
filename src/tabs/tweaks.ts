@@ -218,7 +218,7 @@ export async function loadConfig() {
             showToast(getTranslation('tweaks.presets.applied', { name: presetName }));
             await loadConfig();
           } catch (err) {
-            showToast(`Error: ${err}`);
+            showToast(getTranslation('toast.error', { error: String(err) }));
           } finally {
             clearLoadingState(statusFooter, activityProgress);
           }

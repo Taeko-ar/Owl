@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
-import { getTranslation } from '../i18n/index';
+import { getTranslation, translateDOM } from '../i18n/index';
 import { showToast, showTextInputModal } from '../utils';
-import { loadAddonsAndPatches } from '../main';
+import { loadAddonsAndPatches } from '../tabs/addons';
 import { handleImportString } from './import-export';
+import { getCurrentActiveSite } from '../state';
 
 export function setupImportModalEvents() {
   const importAddonBtn = document.getElementById('importAddonBtn') as HTMLButtonElement | null;
@@ -10,7 +11,9 @@ export function setupImportModalEvents() {
   const gamePath = document.getElementById('gamePath') as HTMLInputElement | null;
 
   importAddonBtn?.addEventListener('click', async () => {
+    if (document.getElementById('importModalOverlay')) return;
     const overlay = document.createElement('div');
+    overlay.id = 'importModalOverlay';
     overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4';
     overlay.innerHTML = `
       <div class="w-full max-w-lg rounded-lg bg-slate-900 border border-slate-700 p-6 shadow-lg">
@@ -43,7 +46,6 @@ export function setupImportModalEvents() {
     `;
 
     document.body.appendChild(overlay);
-    const { translateDOM } = await import('../main');
     translateDOM();
     const closeOverlay = () => overlay.remove();
     const getAddonsOptionBtn = overlay.querySelector('#importGetAddonsBtn') as HTMLButtonElement;
@@ -108,8 +110,7 @@ export function setupImportModalEvents() {
       } catch (err) {
         const errStr = String(err);
         if (errStr.startsWith('BUNDLED:')) {
-          if (statusFooter)
-            statusFooter.textContent = 'Bundled addon detected. Waiting for confirmation.';
+          if (statusFooter) statusFooter.textContent = getTranslation('import.status.bundledAddon');
           const parts = errStr.substring(8).split('|');
           const tempPath = parts[0];
           const names = parts[1].split(',');
@@ -150,102 +151,145 @@ export function showBundledWarningModal(
   tempPath: string,
   addonNames: string[],
   onComplete: () => Promise<void>
-) {
-  const modal = document.getElementById('bundledAddonModal') as HTMLElement;
-  const list = document.getElementById('bundledAddonList') as HTMLElement;
-  const confirmBtn = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
-  const cancelBtn = document.getElementById('confirmBundledCancelBtn') as HTMLButtonElement;
+): Promise<string | null> {
+  return new Promise<string | null>((resolve) => {
+    const modal = document.getElementById('bundledAddonModal') as HTMLElement;
+    const list = document.getElementById('bundledAddonList') as HTMLElement;
+    const confirmBtn = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('confirmBundledCancelBtn') as HTMLButtonElement;
 
-  list.innerHTML = addonNames
-    .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
-    .join('');
-  modal.classList.remove('hidden');
+    list.innerHTML = addonNames
+      .map(
+        (name) => `
+        <label class="flex items-center gap-2 py-1.5 border-b border-slate-800 last:border-0 cursor-pointer">
+          <input type="checkbox" class="bundled-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-name="${name}" checked />
+          <span>${name}</span>
+        </label>
+      `
+      )
+      .join('');
+    modal.classList.remove('hidden');
 
-  const cleanup = () => {
-    modal.classList.add('hidden');
-    const newConfirmBtn = confirmBtn.cloneNode(true);
-    const newCancelBtn = cancelBtn.cloneNode(true);
-    confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
-    cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
-  };
-
-  document.getElementById('confirmBundledInstallBtn')?.addEventListener('click', async () => {
-    cleanup();
-    const statusFooter = document.getElementById('status');
-    try {
-      if (statusFooter) statusFooter.textContent = 'Installing bundled addons...';
-      const res = await invoke<string>('confirm_install_bundled', {
-        basePath,
-        tempDirPath: tempPath,
+    const checkboxes = list.querySelectorAll(
+      '.bundled-addon-checkbox'
+    ) as NodeListOf<HTMLInputElement>;
+    const updateConfirmBtn = () => {
+      let count = 0;
+      checkboxes.forEach((c) => {
+        if (c.checked) count++;
       });
-      if (statusFooter) statusFooter.textContent = 'Addon imported successfully';
-      showToast(getTranslation('toast.imported'));
-      await onComplete();
-      await handlePostInstallDependencyCheck(basePath, res);
-    } catch (err) {
-      if (statusFooter) statusFooter.textContent = `Error: ${err}`;
-    }
-  });
+      confirmBtn.disabled = count === 0;
+    };
+    checkboxes.forEach((c) => c.addEventListener('change', updateConfirmBtn));
+    updateConfirmBtn();
 
-  document.getElementById('confirmBundledCancelBtn')?.addEventListener('click', async () => {
-    cleanup();
-    await invoke('cleanup_temp_archive', { tempDirPath: tempPath });
-    const statusFooter = document.getElementById('status');
-    if (statusFooter) statusFooter.textContent = 'Installation cancelled.';
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      const newCancelBtn = cancelBtn.cloneNode(true);
+      confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
+      cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
+    };
+
+    document.getElementById('confirmBundledInstallBtn')?.addEventListener('click', async () => {
+      const allowedDirs: string[] = [];
+      checkboxes.forEach((cb) => {
+        if (cb.checked) {
+          const name = cb.getAttribute('data-name');
+          if (name) allowedDirs.push(name);
+        }
+      });
+
+      cleanup();
+      const statusFooter = document.getElementById('status');
+      try {
+        if (statusFooter)
+          statusFooter.textContent = getTranslation('import.status.installingBundled');
+        const res = await invoke<string>('confirm_install_bundled', {
+          basePath,
+          tempDirPath: tempPath,
+          allowedDirs,
+        });
+        if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
+        showToast(getTranslation('toast.imported'));
+        await onComplete();
+        resolve(res);
+      } catch (err) {
+        if (statusFooter) statusFooter.textContent = `Error: ${err}`;
+        resolve(null);
+      }
+    });
+
+    document.getElementById('confirmBundledCancelBtn')?.addEventListener('click', async () => {
+      cleanup();
+      await invoke('cleanup_temp_archive', { tempDirPath: tempPath });
+      const statusFooter = document.getElementById('status');
+      if (statusFooter) statusFooter.textContent = getTranslation('import.status.cancelled');
+      resolve(null);
+    });
   });
 }
 
-export function showDependencyModal(basePath: string, dependencyNames: string[]) {
-  const modal = document.getElementById('dependencyModal') as HTMLElement;
-  const list = document.getElementById('dependencyList') as HTMLElement;
-  const confirmBtn = document.getElementById('dependencyInstallBtn') as HTMLButtonElement;
-  const cancelBtn = document.getElementById('dependencyCancelBtn') as HTMLButtonElement;
+export function showDependencyModal(basePath: string, dependencyNames: string[]): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const modal = document.getElementById('dependencyModal') as HTMLElement;
+    const list = document.getElementById('dependencyList') as HTMLElement;
+    const confirmBtn = document.getElementById('dependencyInstallBtn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('dependencyCancelBtn') as HTMLButtonElement;
 
-  list.innerHTML = dependencyNames
-    .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
-    .join('');
-  modal.classList.remove('hidden');
+    list.innerHTML = dependencyNames
+      .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+      .join('');
+    modal.classList.remove('hidden');
 
-  const cleanup = () => {
-    modal.classList.add('hidden');
-    const newConfirmBtn = confirmBtn.cloneNode(true);
-    const newCancelBtn = cancelBtn.cloneNode(true);
-    confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
-    cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
-  };
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      const newCancelBtn = cancelBtn.cloneNode(true);
+      confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
+      cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
+    };
 
-  document.getElementById('dependencyInstallBtn')?.addEventListener('click', async () => {
-    cleanup();
-    const statusFooter = document.getElementById('status');
+    document.getElementById('dependencyInstallBtn')?.addEventListener('click', async () => {
+      cleanup();
+      const statusFooter = document.getElementById('status');
 
-    let isMock = false;
-    try {
-      const { getCurrentActiveSite } = await import('../state');
-      isMock = getCurrentActiveSite() === 'mock';
-    } catch (err) {
-      console.warn('Could not determine active site', err);
-    }
-
-    for (const dep of dependencyNames) {
+      let isMock = false;
       try {
-        if (statusFooter) statusFooter.textContent = `Downloading dependency: ${dep}...`;
-        const res = await invoke<string>('resolve_addon_dependency', {
-          basePath,
-          dependencyName: dep,
-          isMock,
-        });
-        showToast(`Installed dependency: ${dep}`);
-        await handlePostInstallDependencyCheck(basePath, res);
+        isMock = getCurrentActiveSite() === 'mock';
       } catch (err) {
-        showToast(`Failed to resolve dependency ${dep}: ${err}`);
+        console.warn('Could not determine active site', err);
       }
-    }
-    if (statusFooter) statusFooter.textContent = 'Dependency resolution complete.';
-    await loadAddonsAndPatches();
-  });
 
-  document.getElementById('dependencyCancelBtn')?.addEventListener('click', () => {
-    cleanup();
+      for (const dep of dependencyNames) {
+        try {
+          if (statusFooter)
+            statusFooter.textContent = getTranslation('import.status.downloadingDependency', {
+              name: dep,
+            });
+          const res = await invoke<string>('resolve_addon_dependency', {
+            basePath,
+            dependencyName: dep,
+            isMock,
+          });
+          showToast(getTranslation('import.toast.installedDependency', { name: dep }));
+          await handlePostInstallDependencyCheck(basePath, res);
+        } catch (err) {
+          showToast(
+            getTranslation('import.toast.failedDependency', { name: dep, error: String(err) })
+          );
+        }
+      }
+      if (statusFooter)
+        statusFooter.textContent = getTranslation('import.status.dependencyComplete');
+      await loadAddonsAndPatches();
+      resolve();
+    });
+
+    document.getElementById('dependencyCancelBtn')?.addEventListener('click', () => {
+      cleanup();
+      resolve();
+    });
   });
 }
 
@@ -282,6 +326,6 @@ export async function handlePostInstallDependencyCheck(basePath: string, success
   }
 
   if (allMissing.size > 0) {
-    showDependencyModal(basePath, Array.from(allMissing));
+    await showDependencyModal(basePath, Array.from(allMissing));
   }
 }

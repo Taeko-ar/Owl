@@ -55,6 +55,16 @@ export const TAURI_MOCK_SCRIPT = `
           window.__OWL_MOCK_ACTIVE_PROFILE__ = null;
         } else {
           window.__OWL_MOCK_ACTIVE_PROFILE__ = name;
+          if (window.__OWL_MOCK_PROFILES__ && window.__OWL_MOCK_ADDONS__) {
+            const profile = window.__OWL_MOCK_PROFILES__.find(p => p.name === name);
+            if (profile) {
+              const enabledSet = new Set(profile.enabledAddons);
+              window.__OWL_MOCK_ADDONS__ = window.__OWL_MOCK_ADDONS__.map(addon => {
+                const baseName = addon.replace(/-disabled$/, '');
+                return enabledSet.has(baseName) ? baseName : baseName + '-disabled';
+              });
+            }
+          }
         }
         return 'OK';
       }
@@ -171,11 +181,50 @@ export const TAURI_MOCK_SCRIPT = `
           },
         ];
 
+      case 'toggle_addon': {
+        const name = args?.addonName;
+        const enable = args?.enable;
+        if (window.__OWL_MOCK_ADDONS__ && name) {
+          const baseName = name.replace(/-disabled$/, '');
+          const target = enable ? baseName : baseName + '-disabled';
+          const oldTarget = enable ? baseName + '-disabled' : baseName;
+          const idx = window.__OWL_MOCK_ADDONS__.indexOf(oldTarget);
+          if (idx !== -1) {
+            window.__OWL_MOCK_ADDONS__[idx] = target;
+          } else {
+            const idx2 = window.__OWL_MOCK_ADDONS__.indexOf(baseName);
+            if (idx2 !== -1) {
+              window.__OWL_MOCK_ADDONS__[idx2] = target;
+            }
+          }
+        }
+        return 'OK';
+      }
+
+      case 'toggle_patch': {
+        const name = args?.patchName;
+        const enable = args?.enable;
+        if (window.__OWL_MOCK_PATCHES__ && name) {
+          const baseName = name.replace(/-disabled[.]mpq$/i, '').replace(/[.]mpq$/i, '');
+          const suffix = name.toLowerCase().endsWith('.mpq') ? '.mpq' : '';
+          const target = enable ? baseName + suffix : baseName + '-disabled' + suffix;
+          const oldTarget = enable ? baseName + '-disabled' + suffix : baseName + suffix;
+          const idx = window.__OWL_MOCK_PATCHES__.indexOf(oldTarget);
+          if (idx !== -1) {
+            window.__OWL_MOCK_PATCHES__[idx] = target;
+          } else {
+            const idx2 = window.__OWL_MOCK_PATCHES__.indexOf(baseName + suffix);
+            if (idx2 !== -1) {
+              window.__OWL_MOCK_PATCHES__[idx2] = target;
+            }
+          }
+        }
+        return 'OK';
+      }
+
       case 'download_curseforge_addon':
       case 'download_github_release':
       case 'download_and_extract_addon':
-      case 'toggle_addon':
-      case 'toggle_patch':
       case 'open_addon_folder':
       case 'open_patch_folder':
       case 'open_mods_folder':
@@ -220,6 +269,32 @@ export const TAURI_MOCK_SCRIPT = `
 
       case 'write_config':
         return null;
+
+      case 'pick_torrent_file':
+        return 'C:\\\\game.torrent';
+
+      case 'start_torrent_download':
+        return 'info_hash_abc';
+
+      case 'cancel_torrent_download':
+      case 'pause_torrent_downloads':
+      case 'resume_torrent_downloads':
+        return null;
+
+      case 'get_active_downloads':
+        return window.__OWL_MOCK_ACTIVE_DOWNLOADS__ || [];
+
+      case 'validate_game_path':
+        return window.__OWL_MOCK_VALIDATE_GAME_PATH__ !== undefined ? window.__OWL_MOCK_VALIDATE_GAME_PATH__ : true;
+
+      case 'check_update_details':
+        return window.__OWL_MOCK_UPDATE_DETAILS__ !== undefined ? window.__OWL_MOCK_UPDATE_DETAILS__ : {
+          version: '1.2.0',
+          body: 'Added amazing features!\\n- Feature 1\\n- Feature 2',
+        };
+
+      case 'get_app_version':
+        return '1.1.0';
 
       default:
         console.warn('[OWL mock] Unhandled invoke command:', cmd, args);

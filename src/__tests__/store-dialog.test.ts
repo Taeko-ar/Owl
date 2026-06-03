@@ -2,14 +2,21 @@ import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from 'vite
 import fs from 'fs';
 import path from 'path';
 
-import { setCurrentActiveSite } from '../state';
-
 const mockInvoke = (globalThis as unknown as { mockInvoke: Mock }).mockInvoke;
 
 describe('Store Dialog', () => {
   beforeEach(async () => {
-    vi.clearAllMocks();
-    setCurrentActiveSite('curseforge');
+    const state = await import('../state');
+    state.setCurrentActiveSite('curseforge');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ items: [] }),
+        text: () => Promise.resolve(''),
+      })
+    );
 
     const html = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
     document.body.innerHTML = html;
@@ -224,7 +231,8 @@ describe('Store Dialog', () => {
   });
 
   it('displays user-friendly configuration hint on CurseForge 403 Forbidden search error', async () => {
-    setCurrentActiveSite('curseforge');
+    const state = await import('../state');
+    state.setCurrentActiveSite('curseforge');
     const getAddonsBtn = document.getElementById('getAddonsBtn') as HTMLButtonElement;
     getAddonsBtn.click();
     await new Promise((r) => setTimeout(r, 100));

@@ -137,6 +137,7 @@ pub async fn download_and_extract_addon(
     if let Some(ref expected_sha1) = sha1 {
         if let Err(e) = verify_sha1(&zip_path, expected_sha1) {
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err(e);
         }
     }
@@ -146,6 +147,7 @@ pub async fn download_and_extract_addon(
         Ok(p) => p,
         Err(_e) => {
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err(format!("CORRUPTED:addon.{}", ext));
         }
     };
@@ -204,6 +206,7 @@ pub async fn download_and_extract_addon(
             }
 
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
         }
         ArchiveValidation::Bundled { addon_dirs } => {
             if let (Some(m_id), Some(f_id)) = (mod_id, file_id) {
@@ -220,14 +223,17 @@ pub async fn download_and_extract_addon(
         }
         ArchiveValidation::HasLooseFiles { filename } => {
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err(format!("LOOSE_FILES:{}", filename));
         }
         ArchiveValidation::NoTocFound { filename } => {
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err(format!("NO_TOC:{}", filename));
         }
         ArchiveValidation::Corrupted { filename } => {
             let _ = fs::remove_dir_all(&extract_dir);
+            crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             return Err(format!("CORRUPTED:{}", filename));
         }
     }

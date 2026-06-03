@@ -5,4 +5,12 @@ export const Prefs = {
   setTheme: (theme: 'light' | 'dark') => localStorage.setItem('theme', theme),
   getLang: (): Lang => (localStorage.getItem('lang') as Lang) || 'en',
   setLang: (lang: Lang) => localStorage.setItem('lang', lang),
+  getSkippedVersion: (): string | null => localStorage.getItem('skippedVersion'),
+  setSkippedVersion: (version: string | null) => {
+    if (version) {
+      localStorage.setItem('skippedVersion', version);
+    } else {
+      localStorage.removeItem('skippedVersion');
+    }
+  },
 };

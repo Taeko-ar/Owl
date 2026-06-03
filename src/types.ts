@@ -134,3 +134,8 @@ export interface GitHubRepository {
   html_url: string;
   has_issues: boolean;
 }
+
+export interface UpdateDetails {
+  version: string;
+  body: string | null;
+}

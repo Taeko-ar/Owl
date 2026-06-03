@@ -139,6 +139,12 @@ button:disabled {
 body.light-mode {
   background: #f3f4f6 !important;
   color: #1f2937 !important;
+  color-scheme: light !important;
+}
+
+body.light-mode input[type='checkbox'] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
 }
 
 body.light-mode .bg-slate-900,

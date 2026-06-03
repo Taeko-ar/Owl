@@ -1,4 +1,5 @@
 import { escapeHtml, showToast } from '../utils';
+import { getTranslation } from '../i18n';
 
 export interface LogEntry {
   type: 'error' | 'warn' | 'log';
@@ -99,7 +100,7 @@ export function setupDebugConsoleEvents() {
       .join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      showToast('Logs copied to clipboard!');
+      showToast(getTranslation('debug.toast.copied'));
     } catch (err) {
       originalConsoleError('Failed to copy logs:', err);
     }
