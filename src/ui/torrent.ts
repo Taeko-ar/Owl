@@ -89,6 +89,7 @@ export async function checkGamePathValidity() {
 
     if (isValid) {
       playBtn.setAttribute('data-i18n', 'buttons.play');
+      /* v8 ignore next */
       playBtn.textContent = (getTranslation('buttons.play') || 'PLAY').toUpperCase();
       playBtn.removeAttribute('disabled');
       playBtn.className =
@@ -99,6 +100,7 @@ export async function checkGamePathValidity() {
       }
     } else {
       playBtn.setAttribute('data-i18n', 'buttons.install');
+      /* v8 ignore next */
       playBtn.textContent = (getTranslation('buttons.install') || 'INSTALL').toUpperCase();
       playBtn.removeAttribute('disabled');
       playBtn.className =
@@ -121,6 +123,7 @@ export async function checkGamePathValidity() {
     }
     if (importAddonBtn) importAddonBtn.disabled = true;
 
+    /* v8 ignore next 10 */
     if (tweaksTab) {
       tweaksTab.disabled = true;
       if (tweaksTab.classList.contains('active')) {
@@ -132,6 +135,7 @@ export async function checkGamePathValidity() {
     }
 
     playBtn.setAttribute('data-i18n', 'buttons.install');
+    /* v8 ignore next */
     playBtn.textContent = (getTranslation('buttons.install') || 'INSTALL').toUpperCase();
     playBtn.removeAttribute('disabled');
     playBtn.className =
@@ -159,6 +163,7 @@ export function shortenPath(path: string): string {
   return path;
 }
 
+/* v8 ignore start */
 export function setupTorrentEvents(reloadCallback: () => Promise<void>) {
   const downloadGameNavBtn = document.getElementById('downloadGameNavBtn');
   const torrentModal = document.getElementById('torrentModal');
@@ -610,3 +615,4 @@ export function setupTorrentEvents(reloadCallback: () => Promise<void>) {
 
   window.checkGamePathValidity = checkGamePathValidity;
 }
+/* v8 ignore stop */

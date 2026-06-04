@@ -188,7 +188,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(trigger).toBeTypeOf('function');
 
     // Case A: Allocated/initializing without downloaded bytes
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -207,7 +207,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(document.getElementById('playBtn')?.textContent).toContain('ALLOCATING...');
 
     // Case B: Verifying with downloaded bytes
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -226,7 +226,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(document.getElementById('playBtn')?.textContent).toContain('VERIFYING 50%');
 
     // Case C: Downloading client normal state
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -246,7 +246,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(drawerContent?.innerHTML).toContain('400 Bytes / 1000 Bytes');
 
     // Case D: Unpacking / Extracting state
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -265,7 +265,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(document.getElementById('playBtn')?.textContent).toContain('EXTRACTING...');
 
     // Case E: Paused state
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -284,7 +284,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(document.getElementById('playBtn')?.textContent).toContain('PAUSED');
 
     // Case F: Error state
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -313,7 +313,7 @@ describe('Torrent Downloader UI Module', () => {
     expect(mockInvoke).toHaveBeenCalledWith('cancel_torrent_download', { infoHash: 'hash1' });
 
     // Cancel download button click when mockInvoke fails
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -342,6 +342,8 @@ describe('Torrent Downloader UI Module', () => {
     if (progressCall) {
       const progressCb = progressCall[1];
       progressCb({
+        event: 'torrent-progress',
+        id: 1,
         payload: {
           downloads: [
             {
@@ -369,7 +371,7 @@ describe('Torrent Downloader UI Module', () => {
       mockInvoke.mockResolvedValueOnce({ path: 'C:\\wow' }); // load_settings
       mockInvoke.mockResolvedValueOnce(true); // validate_game_path
       mockInvoke.mockResolvedValueOnce([]); // get_active_downloads
-      await completedCb({ payload: 'Install completed' });
+      await completedCb({ event: 'torrent-completed', id: 1, payload: 'Install completed' });
       expect(document.getElementById('status')?.textContent).toBe('Ready');
       expect(reloadMock).toHaveBeenCalled();
     }
@@ -380,14 +382,14 @@ describe('Torrent Downloader UI Module', () => {
       mockInvoke.mockRejectedValueOnce('Load settings failed');
       mockInvoke.mockResolvedValueOnce(true); // validate_game_path
       mockInvoke.mockResolvedValueOnce([]); // get_active_downloads
-      await completedCb({ payload: 'Install completed' });
+      await completedCb({ event: 'torrent-completed', id: 1, payload: 'Install completed' });
     }
 
     // torrent-error event listener
     const errorCall = listenMock.mock.calls.find((c) => c[0] === 'torrent-error');
     if (errorCall) {
       const errorCb = errorCall[1];
-      errorCb({ payload: 'Download failed message' });
+      errorCb({ event: 'torrent-error', id: 1, payload: 'Download failed message' });
       expect(document.getElementById('status')?.textContent).toBe('Ready');
     }
 
@@ -475,15 +477,18 @@ describe('Torrent Downloader UI Module', () => {
     // 4. torrentModal backdrop click
     const torrentModal = document.getElementById('torrentModal') as HTMLElement;
     torrentModal.classList.remove('hidden');
-    
+
     // Create a child element to click inside the modal
     const modalChild = document.createElement('div');
     torrentModal.appendChild(modalChild);
     modalChild.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(torrentModal.classList.contains('hidden')).toBe(false);
-    
+
     // Dispatch click directly on torrentModal (backdrop)
-    Object.defineProperty(MouseEvent.prototype, 'target', { value: torrentModal, configurable: true });
+    Object.defineProperty(MouseEvent.prototype, 'target', {
+      value: torrentModal,
+      configurable: true,
+    });
     torrentModal.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(torrentModal.classList.contains('hidden')).toBe(true);
 
@@ -491,7 +496,7 @@ describe('Torrent Downloader UI Module', () => {
     // pick_torrent_file reject
     mockInvoke.mockRejectedValueOnce('Pick file error');
     await document.getElementById('browseTorrentFileBtn')?.dispatchEvent(new MouseEvent('click'));
-    
+
     // pick_folder reject
     mockInvoke.mockRejectedValueOnce('Pick folder error');
     await document.getElementById('browseTorrentDestBtn')?.dispatchEvent(new MouseEvent('click'));
@@ -510,14 +515,18 @@ describe('Torrent Downloader UI Module', () => {
       if (cmd === 'pause_torrent_downloads') return Promise.reject('Pause downloads error');
       return Promise.resolve();
     });
-    await document.getElementById('torrentDrawerPauseAllBtn')?.dispatchEvent(new MouseEvent('click'));
+    await document
+      .getElementById('torrentDrawerPauseAllBtn')
+      ?.dispatchEvent(new MouseEvent('click'));
 
     // resume_torrent_downloads reject
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === 'resume_torrent_downloads') return Promise.reject('Resume downloads error');
       return Promise.resolve();
     });
-    await document.getElementById('torrentDrawerResumeAllBtn')?.dispatchEvent(new MouseEvent('click'));
+    await document
+      .getElementById('torrentDrawerResumeAllBtn')
+      ?.dispatchEvent(new MouseEvent('click'));
 
     // refreshActiveDownloads reject (get_active_downloads reject)
     mockInvoke.mockImplementation((cmd) => {
@@ -538,9 +547,9 @@ describe('Torrent Downloader UI Module', () => {
     document.getElementById('activityProgress')?.remove();
 
     const trigger = window.__triggerTorrentProgress;
-    
+
     // Allocating / Initializing
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -556,9 +565,9 @@ describe('Torrent Downloader UI Module', () => {
         },
       ],
     });
-    
+
     // Verifying
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -576,7 +585,7 @@ describe('Torrent Downloader UI Module', () => {
     });
 
     // Downloading
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -594,7 +603,7 @@ describe('Torrent Downloader UI Module', () => {
     });
 
     // Unpacking / Extracting
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -612,7 +621,7 @@ describe('Torrent Downloader UI Module', () => {
     });
 
     // Paused
-    trigger!({
+    trigger?.({
       downloads: [
         {
           infoHash: 'hash1',
@@ -630,6 +639,168 @@ describe('Torrent Downloader UI Module', () => {
     });
 
     // Empty downloads
-    trigger!({ downloads: [] });
+    trigger?.({ downloads: [] });
+  });
+
+  it('covers remaining torrent.ts edge branches and missing elements', async () => {
+    // 1. checkGamePathValidity with missing element elements (addonsSearch, patchesSearch, importAddonBtn, tweaksTab)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <button id="playBtn"></button>
+    `;
+    mockInvoke.mockResolvedValueOnce(true);
+    await checkGamePathValidity();
+
+    // 2. checkGamePathValidity catch path with missing elements
+    mockInvoke.mockRejectedValueOnce('Error');
+    await checkGamePathValidity();
+
+    // 3. installLocateBtn click when selectedFolder is falsy or gamePathInput is missing
+    document.body.innerHTML = `
+      <div id="installChoiceModal" class="hidden">
+        <button id="installLocateBtn"></button>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    // pick_folder returns null
+    mockInvoke.mockResolvedValueOnce(null);
+    document.getElementById('installLocateBtn')?.dispatchEvent(new MouseEvent('click'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 4. installLocateBtn browse success when windowSizeSelect and stayOpen are missing from DOM
+    document.body.innerHTML = `
+      <div id="installChoiceModal" class="hidden">
+        <button id="installLocateBtn"></button>
+      </div>
+      <input id="gamePath" value="C:\\wow" />
+    `;
+    setupTorrentEvents(vi.fn());
+    mockInvoke.mockResolvedValueOnce('C:\\new');
+    mockInvoke.mockResolvedValueOnce(null); // save_settings
+    mockInvoke.mockResolvedValueOnce(true); // validate_game_path
+    mockInvoke.mockResolvedValueOnce([]); // get_active_downloads
+    document.getElementById('installLocateBtn')?.dispatchEvent(new MouseEvent('click'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 5. browseTorrentFileBtn click when file or torrentSourceInput is missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <button id="browseTorrentFileBtn"></button>
+        <input id="torrentDestInput" />
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    mockInvoke.mockResolvedValueOnce('file.torrent');
+    document.getElementById('browseTorrentFileBtn')?.dispatchEvent(new MouseEvent('click'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 6. browseTorrentDestBtn click when folder or torrentDestInput is missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <input id="torrentSourceInput" />
+        <button id="browseTorrentDestBtn"></button>
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    mockInvoke.mockResolvedValueOnce('C:\\folder');
+    document.getElementById('browseTorrentDestBtn')?.dispatchEvent(new MouseEvent('click'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 7. torrentStartBtn click when src or dest is missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <input id="torrentSourceInput" />
+        <input id="torrentDestInput" />
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    // click with empty inputs
+    document.getElementById('torrentStartBtn')?.dispatchEvent(new MouseEvent('click'));
+
+    // 8. torrentDrawerPauseAllBtn / torrentDrawerResumeAllBtn click when the other is missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <input id="torrentSourceInput" />
+        <input id="torrentDestInput" />
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+      <button id="torrentDrawerPauseAllBtn"></button>
+    `;
+    setupTorrentEvents(vi.fn());
+    mockInvoke.mockResolvedValueOnce(null);
+    document.getElementById('torrentDrawerPauseAllBtn')?.dispatchEvent(new MouseEvent('click'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 9. updateDrawerVisibility when elements are missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <input id="torrentSourceInput" />
+        <input id="torrentDestInput" />
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    mockInvoke.mockResolvedValueOnce([
+      {
+        infoHash: 'hash1',
+        name: 'A',
+        destDir: 'C',
+        isUnpacking: false,
+        isPaused: false,
+        error: null,
+      },
+    ]);
+    // trigger a refresh
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 10. formatBytes decimals < 0 & renderActiveDownloadsList cancel-dl-btn click when hash is missing
+    document.body.innerHTML = `
+      <div id="torrentModal" class="hidden">
+        <input id="torrentSourceInput" />
+        <input id="torrentDestInput" />
+        <button id="torrentStartBtn" disabled></button>
+      </div>
+      <div id="torrentDrawer">
+        <span id="torrentDrawerCount">0</span>
+        <div id="torrentDrawerContent"></div>
+      </div>
+    `;
+    setupTorrentEvents(vi.fn());
+    // trigger window progress
+    const trigger = window.__triggerTorrentProgress;
+    trigger?.({
+      downloads: [
+        {
+          infoHash: '', // no hash to cover fallback branch
+          name: 'Torrent A',
+          downloadedBytes: 0,
+          totalBytes: 0, // totalBytes = 0 for percent = 0
+          speedBps: 0,
+          peers: 0,
+          isUnpacking: false,
+          isPaused: false,
+          error: null,
+          state: 'downloading',
+        },
+      ],
+    });
+    // click cancel-dl-btn
+    const cancelDlBtn = document.querySelector('.cancel-dl-btn') as HTMLElement;
+    cancelDlBtn?.click();
+
+    // 11. torrent-completed event when saved path is missing
+    const { listen } = await import('@tauri-apps/api/event');
+    const listenMock = vi.mocked(listen);
+    const completedCall = listenMock.mock.calls.find((c) => c[0] === 'torrent-completed');
+    if (completedCall) {
+      const completedCb = completedCall[1];
+      mockInvoke.mockResolvedValueOnce({ path: null }); // no path
+      mockInvoke.mockResolvedValueOnce(true); // validate_game_path
+      mockInvoke.mockResolvedValueOnce([]); // get_active_downloads
+      await completedCb({ event: 'torrent-completed', id: 1, payload: 'Install completed' });
+    }
   });
 });

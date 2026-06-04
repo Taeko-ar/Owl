@@ -183,22 +183,24 @@ test.describe('Store Modal — Installed Addon indicator', () => {
     await expect(store.selectBtn).toHaveText('Installed');
   });
 
-  test('shows replacement warning modal when download_and_extract_addon returns REPLACE_WARNING', async ({ appPage }) => {
+  test('shows replacement warning modal when download_and_extract_addon returns REPLACE_WARNING', async ({
+    appPage,
+  }) => {
     // Override download_and_extract_addon to return REPLACE_WARNING
     await appPage.evaluate(() => {
-      window.__OWL_INVOKE_OVERRIDES__['download_and_extract_addon'] = () => {
+      const win = window as unknown as { __OWL_INVOKE_OVERRIDES__: Record<string, () => unknown> };
+      win.__OWL_INVOKE_OVERRIDES__['download_and_extract_addon'] = () => {
         return Promise.reject('REPLACE_WARNING:temp|Questie');
       };
-      window.__OWL_INVOKE_OVERRIDES__['cleanup_temp_archive'] = () => Promise.resolve();
+      win.__OWL_INVOKE_OVERRIDES__['cleanup_temp_archive'] = () => Promise.resolve();
     });
 
     // Uncheck/check or select another addon since Questie is marked installed and disabled.
     // Actually, setMockAddons has ['Questie'], making Questie disabled. We can just use the checkbox of the second card (Deadly Boss Mods).
-    const dbmCard = store.addonCard('Deadly Boss Mods');
     await store.clickAddonCard('Deadly Boss Mods');
     await store.checkAddon(1); // Select Deadly Boss Mods (index 1)
     await store.openReview();
-    
+
     // Click the confirm button in review modal to start installation
     const confirmBtn = appPage.locator('#store-modal-confirm');
     await confirmBtn.click();

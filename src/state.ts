@@ -1,4 +1,10 @@
-import { AddonGitStatus, CatalogAddon, AddonVersion, StoreSite, InstalledAddonSourceMeta } from './types';
+import {
+  AddonGitStatus,
+  CatalogAddon,
+  AddonVersion,
+  StoreSite,
+  InstalledAddonSourceMeta,
+} from './types';
 
 export const gitStatusCache = new Map<string, AddonGitStatus | null>();
 export const selectedAddons = new Map<
@@ -71,4 +77,3 @@ export function getInstalledAddonsMeta() {
 export function setInstalledAddonsMeta(v: InstalledAddonSourceMeta[]) {
   installedAddonsMeta = v;
 }
-

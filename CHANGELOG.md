@@ -1,4 +1,5 @@
 ## [1.1.2] - 2026-06-03
+
 - Fixed a few issues from the marketplace
 
 ## [1.1.1] - 2026-06-03

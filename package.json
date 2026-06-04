@@ -19,7 +19,8 @@
     "automation:headed": "npx playwright test --headed",
     "automation:report": "npx playwright show-report",
     "automation:ui": "npx playwright test --ui",
-    "check-i18n": "tsx src/i18n/check-translations.ts"
+    "check-i18n": "tsx src/i18n/check-translations.ts",
+    "check": "npm run typecheck && npm run lint:fix && npm run format && npm run check-i18n && npm run test"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

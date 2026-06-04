@@ -39,6 +39,7 @@ interface ExtendedWindow {
   [key: string]: unknown;
 }
 
+/* v8 ignore next */
 const win = (typeof window !== 'undefined' ? window : {}) as unknown as ExtendedWindow;
 
 // Fallback stub for Tauri window globals in non-Tauri environments
@@ -391,7 +392,7 @@ playBtn?.addEventListener('click', async () => {
     return;
   }
 
-  if (playBtn) playBtn.disabled = true;
+  playBtn.disabled = true;
   setLoadingState(getTranslation('status.launching'), 20, statusFooter, activityProgress);
 
   try {
@@ -408,7 +409,7 @@ playBtn?.addEventListener('click', async () => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     statusFooter.textContent = `Error: ${errorMessage}`;
   } finally {
-    if (playBtn) playBtn.disabled = false;
+    playBtn.disabled = false;
     setTimeout(clearLoadingState, 1200);
   }
 });

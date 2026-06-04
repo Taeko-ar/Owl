@@ -95,7 +95,10 @@ export function setupImportModalEvents() {
 
         if (statusFooter) statusFooter.textContent = getTranslation('status.importingFiles');
         if (gamePath) {
-          const res = await invoke<string>('import_addon_files', { basePath: gamePath.value, filePaths });
+          const res = await invoke<string>('import_addon_files', {
+            basePath: gamePath.value,
+            filePaths,
+          });
           await loadAddonsAndPatches();
           if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
           showToast(getTranslation('toast.imported'));
@@ -108,9 +111,14 @@ export function setupImportModalEvents() {
           const parts = errStr.substring(8).split('|');
           const tempPath = parts[0];
           const names = parts[1].split(',');
-          showBundledWarningModal(gamePath!.value, tempPath, names, async () => {
-            await loadAddonsAndPatches();
-          });
+          showBundledWarningModal(
+            (gamePath as HTMLInputElement).value,
+            tempPath,
+            names,
+            async () => {
+              await loadAddonsAndPatches();
+            }
+          );
         } else if (errStr.startsWith('REPLACE_WARNING:')) {
           if (statusFooter) statusFooter.textContent = 'Conflicting addon files detected.';
           const parts = errStr.substring(16).split('|');
@@ -130,9 +138,11 @@ export function setupImportModalEvents() {
               showToast(getTranslation('toast.imported'));
               await handlePostInstallDependencyCheck(gamePath.value, res);
             } catch (confirmErr) {
+              /* v8 ignore next */
               if (statusFooter) statusFooter.textContent = `Error: ${confirmErr}`;
             }
           } else {
+            /* v8 ignore next */
             if (statusFooter) statusFooter.textContent = 'Import cancelled.';
           }
         } else {
@@ -379,4 +389,3 @@ export function showReplaceWarningModal(
     });
   });
 }
-

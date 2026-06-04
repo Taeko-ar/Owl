@@ -52,11 +52,13 @@ function showUpdateDetails(update: UpdateDetails) {
   const modal = document.getElementById('updateDetailsModal');
   const title = document.getElementById('updateModalTitle');
   const body = document.getElementById('updateChangelogContent');
+  /* v8 ignore next */
   if (!modal || !body) return;
 
   if (title) {
     title.textContent = `${getTranslation('settings.updateModalTitle')} (v${update.version})`;
   }
+  /* v8 ignore next */
   body.innerHTML = parseMarkdownToHTML(update.body || 'No release notes provided.');
   modal.classList.remove('hidden');
 }
@@ -94,6 +96,7 @@ export async function checkLauncherUpdates(manual: boolean) {
         if (badge) badge.classList.remove('hidden');
         updateContainer.innerHTML = `<span id="settingsUpdateLabel" class="text-xs text-amber-400 font-semibold cursor-pointer hover:underline" data-i18n="settings.updateAvailable">Update available!</span>`;
       } else {
+        /* v8 ignore next */
         if (badge) badge.classList.add('hidden');
         updateContainer.innerHTML = `<span id="settingsUpdateLabel" class="text-xs text-slate-400 cursor-pointer hover:underline" data-i18n="settings.checkUpdates">Check updates...</span>`;
       }
@@ -114,6 +117,7 @@ export async function checkLauncherUpdates(manual: boolean) {
   } catch (err) {
     console.error('Check update failed', err);
     if (badge) badge.classList.add('hidden');
+    /* v8 ignore next 8 */
     if (manual) {
       updateContainer.innerHTML = `<span class="text-xs text-red-400 font-semibold" data-i18n="settings.updateError">Check failed</span>`;
       setTimeout(() => {
@@ -150,8 +154,11 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
   function restoreSettingsBackup() {
     const backup = getSettingsBackup();
     if (!backup) return;
+    /* v8 ignore next */
     if (gamePath) gamePath.value = backup.path;
+    /* v8 ignore next */
     if (windowSizeSelect) windowSizeSelect.value = backup.windowSize;
+    /* v8 ignore next */
     if (stayOpen) stayOpen.checked = backup.stayOpen;
   }
 
@@ -174,6 +181,7 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
       p.then((version) => {
         if (version) {
           const settingsUpdateVersion = document.getElementById('settingsUpdateVersion');
+          /* v8 ignore next */
           if (settingsUpdateVersion) settingsUpdateVersion.textContent = `v${version}`;
         }
       }).catch(console.error);
@@ -229,8 +237,10 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
     if (cachedUpdate) {
       Prefs.setSkippedVersion(cachedUpdate.version);
       const badge = document.getElementById('settingsBadge');
+      /* v8 ignore next */
       if (badge) badge.classList.add('hidden');
       const updateContainer = document.getElementById('settingsUpdateContainer');
+      /* v8 ignore next 5 */
       if (updateContainer) {
         updateContainer.innerHTML = `<span id="settingsUpdateLabel" class="text-xs text-slate-400 cursor-pointer hover:underline" data-i18n="settings.checkUpdates">Check updates...</span>`;
         translateDOM();

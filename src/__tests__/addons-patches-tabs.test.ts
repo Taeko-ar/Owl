@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { loadAddonsAndPatches, setupAddonProfileEvents, resetProfilesInitializedForTesting } from '../tabs/addons';
+import {
+  loadAddonsAndPatches,
+  setupAddonProfileEvents,
+  resetProfilesInitializedForTesting,
+} from '../tabs/addons';
 import { invoke } from '@tauri-apps/api/core';
 import { showAddonModal } from '../ui/addon-modal';
 
@@ -625,7 +629,11 @@ describe('Addons & Patches Tabs UI', () => {
       <div id="patches-empty"></div>
     `;
     const loadPatchesModule = await import('../tabs/patches');
-    await loadPatchesModule.loadPatches(['patch-enUS-W.mpq'], '/mock/wow', document.getElementById('status'));
+    await loadPatchesModule.loadPatches(
+      ['patch-enUS-W.mpq'],
+      '/mock/wow',
+      document.getElementById('status')
+    );
 
     const confirmBtn = document.querySelector('.confirm-delete') as HTMLElement;
     confirmBtn.removeAttribute('data-patch'); // strip it
@@ -760,7 +768,9 @@ describe('Addons & Patches Tabs UI', () => {
     // Update profile list DOM elements and trigger actions (Apply, Rename, Delete)
     await loadAddonsAndPatches();
 
-    const row = document.querySelector('.profile-item-row[data-profile="My Profile"]') as HTMLElement;
+    const row = document.querySelector(
+      '.profile-item-row[data-profile="My Profile"]'
+    ) as HTMLElement;
     expect(row).not.toBeNull();
 
     // Click profile name to Apply
@@ -768,7 +778,10 @@ describe('Addons & Patches Tabs UI', () => {
     (invoke as any).mockResolvedValueOnce(null); // apply_addon_profile
     applyLabel.click();
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(invoke).toHaveBeenCalledWith('apply_addon_profile', { basePath: '/mock/wow', name: 'My Profile' });
+    expect(invoke).toHaveBeenCalledWith('apply_addon_profile', {
+      basePath: '/mock/wow',
+      name: 'My Profile',
+    });
 
     // Click rename button to show edit view
     const renameBtn = row.querySelector('.rename-profile-btn') as HTMLElement;
@@ -884,7 +897,6 @@ describe('Addons & Patches Tabs UI', () => {
   });
 
   it('covers mods tab activeTab state, profile setup error catch paths, empty profiles mapping, and comparison modifications', async () => {
-
     // 1. activeTab === 'mods'
     document.body.innerHTML = `
       <input id="gamePath" value="/mock/wow" />
@@ -1110,6 +1122,349 @@ describe('Addons & Patches Tabs UI', () => {
     (invoke as any).mockRejectedValueOnce('Error');
     deleteBtn2.click();
     confirmBtn2.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  it('covers remaining addons.ts and patches.ts edge branches', async () => {
+    // 1. toggle, open, delete buttons with missing data-addon attribute
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list">
+        <button class="open-addon" title="Open Folder">Open</button>
+        <input type="checkbox" class="addon-toggle" />
+        <button class="delete-addon" title="Delete Addon">Delete</button>
+      </div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+
+    const openBtn = document.querySelector('.open-addon') as HTMLElement;
+    openBtn.click(); // no data-addon
+
+    const toggleInput = document.querySelector('.addon-toggle') as HTMLInputElement;
+    toggleInput.dispatchEvent(new Event('change')); // no data-addon
+
+    const deleteBtn = document.querySelector('.delete-addon') as HTMLElement;
+    deleteBtn.click(); // no data-addon
+
+    // 2. keydown event on profile modal input with key other than Enter
+    document.body.innerHTML = `
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <div id="profileModal" class="hidden">
+        <div id="profileModalTitle"></div>
+        <input id="profileModalInput" />
+        <div id="profileModalError" class="hidden"></div>
+        <button id="cancelProfileModal"></button>
+        <button id="confirmProfileModal"></button>
+      </div>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+    `;
+    setupAddonProfileEvents();
+    const inputEl = document.getElementById('profileModalInput') as HTMLInputElement;
+    inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+
+    // 3. confirmProfileModal when settings addonProfiles is undefined
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve({}); // addonProfiles is undefined
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'save_addon_profile') return Promise.resolve();
+      return Promise.resolve();
+    });
+    inputEl.value = 'NewProfile';
+    const confirmBtn = document.getElementById('confirmProfileModal') as HTMLElement;
+    confirmBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 4. activeProfile not found in profiles, activeProfile is null for header mods check
+    document.body.innerHTML = `
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <div id="activeProfileHeaderName"></div>
+      <div id="activeProfileHeaderContainer"></div>
+      <div id="activeProfileHeaderNameMods"></div>
+      <div id="activeProfileHeaderContainerMods"></div>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    // Case 4a: activeProfile not found in profiles
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({ activeProfile: 'NonExistent', addonProfiles: [] });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Case 4b: activeProfile is null/falsy
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({ activeProfile: null, addonProfiles: [] });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 5. saveProfileBtn click when profileModal is missing
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings') return Promise.resolve({ addonProfiles: [] });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    document.getElementById('saveProfileBtn')?.click();
+
+    // 6. updateProfileBtn click settings activeProfile is null
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({
+          activeProfile: 'My Profile',
+          addonProfiles: [{ name: 'My Profile', enabledAddons: ['Different'] }],
+        });
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    // mock settings again to return null activeProfile on click
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve({ activeProfile: null });
+      return Promise.resolve();
+    });
+    document.getElementById('updateProfileBtn')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 7. updateProfileDropdown when #profileList is missing from DOM
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({ addonProfiles: [{ name: 'Profile1', enabledAddons: [] }] });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    // remove profileList
+    document.getElementById('profileList')?.remove();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 8. performRename when load_settings returns null
+    document.body.innerHTML = `
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden">
+        <div id="profileList"></div>
+      </div>
+      <div id="activeProfileHeaderName"></div>
+      <div id="activeProfileHeaderContainer"></div>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({
+          activeProfile: 'My Profile',
+          addonProfiles: [{ name: 'My Profile', enabledAddons: [] }],
+        });
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    const renameBtn = document.querySelector('.rename-profile-btn') as HTMLElement;
+    renameBtn?.click();
+    const editInput = document.querySelector('.profile-edit-input') as HTMLInputElement;
+    if (editInput) editInput.value = 'New Name';
+    // mock load_settings to return null on rename click
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.reject('Error');
+      return Promise.resolve();
+    });
+    const confirmRename = document.querySelector('.confirm-rename-btn') as HTMLElement;
+    confirmRename?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 9. editInput keydown key other than Enter or Escape
+    renameBtn?.click();
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+
+    // 10. patches.ts logical branch when patchesList is missing but patchesEmpty is present
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-empty"></div>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve(['patch-1.mpq']);
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+  });
+
+  it('covers missing profile inputs, missing data-addon attributes, and parent element edge cases in addons.ts', async () => {
+    // 1. profileModalTitle and profileModalInput are missing
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="saveProfileBtn"></button>
+      <div id="profileModal"></div>
+      <div id="profileDropdown" class="hidden"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({ activeProfile: null, addonProfiles: [] });
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon' });
+      return Promise.resolve();
+    });
+    setupAddonProfileEvents();
+    await loadAddonsAndPatches();
+
+    document.getElementById('saveProfileBtn')?.click();
+
+    // 2. data-addon missing on open-addon, addon-toggle, delete-addon elements
+    const openBtn = document.createElement('button');
+    openBtn.className = 'open-addon';
+    document.body.appendChild(openBtn);
+    openBtn.click();
+
+    const toggleChk = document.createElement('input');
+    toggleChk.type = 'checkbox';
+    toggleChk.className = 'addon-toggle';
+    document.body.appendChild(toggleChk);
+    toggleChk.dispatchEvent(new Event('change'));
+
+    // 3. delete-addon where parent element is missing
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-addon';
+    deleteBtn.click();
+
+    // 4. profile-item-row with missing data-profile
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <div id="profileList">
+        <div class="profile-item-row"></div>
+      </div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({
+          activeProfile: null,
+          addonProfiles: [{ name: '', enabledAddons: [] }],
+        });
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon' });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+
+    // 5. updateProfileBtn error path when load_settings succeeds but get_addons throws error
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="updateProfileBtn"></button>
+      <div id="profileDropdown"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.reject('Get addons failed');
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings')
+        return Promise.resolve({
+          activeProfile: 'ActiveProfile',
+          addonProfiles: [{ name: 'ActiveProfile', enabledAddons: [] }],
+        });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    document.getElementById('updateProfileBtn')?.click();
     await new Promise((resolve) => setTimeout(resolve, 10));
   });
 });

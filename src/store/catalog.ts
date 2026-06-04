@@ -137,7 +137,7 @@ export async function loadAddonDetails(addon: CatalogAddon, key: string) {
         .map((file) => {
           const dlUrl =
             file.downloadUrl ||
-            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName!)}`;
+            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName as string)}`;
           return {
             id: file.id,
             displayName: file.displayName || file.fileName || 'Unknown Version',

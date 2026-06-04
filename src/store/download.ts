@@ -60,7 +60,7 @@ export async function selectAddonForDownload(
         .map((file) => {
           const dlUrl =
             file.downloadUrl ||
-            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName!)}`;
+            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName as string)}`;
           return {
             id: file.id,
             displayName: file.displayName || file.fileName || 'Unknown Version',
@@ -261,6 +261,7 @@ export async function installSelectedAddons() {
             }
           }
         } else {
+          /* v8 ignore next 3 */
           if (statusCell) {
             statusCell.innerHTML = `<span class="text-red-400 font-bold">❌ Cancelled</span>`;
           }

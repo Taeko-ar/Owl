@@ -802,23 +802,77 @@ describe('Store Catalog Module', () => {
 
   it('isAddonInstalled correctly matches installed addons for curseforge and github', () => {
     // 1. CurseForge match by modId
-    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 101, gitUrl: '' }]);
+    setInstalledAddonsMeta([{ name: 'Questie', modId: 101, gitUrl: '' }]);
     setCurrentActiveSite('curseforge');
     expect(isAddonInstalled({ modId: 101, title: 'Questie', name: 'Questie' } as any)).toBe(true);
 
     // 2. GitHub match by gitUrl
-    setInstalledAddonsMeta([{ name: 'QuestieRepo', folderName: 'Questie', modId: 0, gitUrl: 'https://github.com/Questie/QuestieRepo.git' }]);
+    setInstalledAddonsMeta([
+      { name: 'QuestieRepo', modId: 0, gitUrl: 'https://github.com/Questie/QuestieRepo.git' },
+    ]);
     setCurrentActiveSite('github');
-    expect(isAddonInstalled({ modId: 0, title: 'QuestieRepo', name: 'Questie/QuestieRepo' } as any)).toBe(true);
+    expect(
+      isAddonInstalled({
+        modId: 0,
+        title: 'QuestieRepo',
+        name: 'Questie/QuestieRepo',
+        sourceUrl: 'https://github.com/Questie/QuestieRepo',
+      } as any)
+    ).toBe(true);
 
-    // 3. Fallback name match
-    setInstalledAddonsMeta([{ name: 'QuestieTitle', folderName: 'Questie', modId: 0, gitUrl: '' }]);
+    // 2b. GitHub but installed gitUrl is falsy
+    setInstalledAddonsMeta([{ name: 'InstalledDiffName', modId: 0, gitUrl: '' }]);
+    expect(
+      isAddonInstalled({
+        modId: 0,
+        title: 'QuestieRepo',
+        name: 'Questie/QuestieRepo',
+        sourceUrl: 'https://github.com/Questie/QuestieRepo',
+      } as any)
+    ).toBe(false);
+
+    // 2c. GitHub but addon sourceUrl is falsy
+    setInstalledAddonsMeta([
+      { name: 'InstalledDiffName', modId: 0, gitUrl: 'https://github.com/Questie/QuestieRepo.git' },
+    ]);
+    expect(
+      isAddonInstalled({
+        modId: 0,
+        title: 'QuestieRepo',
+        name: 'Questie/QuestieRepo',
+        sourceUrl: '',
+      } as any)
+    ).toBe(false);
+
+    // 2d. GitHub gitUrl and sourceUrl present but mismatch
+    setInstalledAddonsMeta([
+      { name: 'InstalledDiffName', modId: 0, gitUrl: 'https://github.com/Questie/OtherRepo.git' },
+    ]);
+    expect(
+      isAddonInstalled({
+        modId: 0,
+        title: 'QuestieRepo',
+        name: 'Questie/QuestieRepo',
+        sourceUrl: 'https://github.com/Questie/QuestieRepo',
+      } as any)
+    ).toBe(false);
+
+    // 3. Fallback name match (title matches)
+    setInstalledAddonsMeta([{ name: 'QuestieTitle', modId: 0, gitUrl: '' }]);
     setCurrentActiveSite('curseforge');
-    expect(isAddonInstalled({ modId: 999, title: 'QuestieTitle', name: 'Questie' } as any)).toBe(true);
+    expect(isAddonInstalled({ modId: 999, title: 'QuestieTitle', name: 'Questie' } as any)).toBe(
+      true
+    );
+
+    // 3b. Fallback name match (name matches instead of title)
+    setInstalledAddonsMeta([{ name: 'QuestieName', modId: 0, gitUrl: '' }]);
+    expect(
+      isAddonInstalled({ modId: 999, title: 'DifferentTitle', name: 'QuestieName' } as any)
+    ).toBe(true);
   });
 
   it('renderStoreCatalog disables checkbox and renders Installed badge for installed addons', () => {
-    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 101, gitUrl: '' }]);
+    setInstalledAddonsMeta([{ name: 'Questie', modId: 101, gitUrl: '' }]);
     setCurrentActiveSite('curseforge');
 
     const addons: any[] = [
@@ -837,13 +891,13 @@ describe('Store Catalog Module', () => {
     expect(card).not.toBeNull();
     expect(card.innerHTML).toContain('Questie');
     expect(card.innerHTML).toContain('Installed');
-    
+
     const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
     expect(cb.disabled).toBe(true);
   });
 
   it('loadAddonDetails disables selection button and shows Installed for installed addons', async () => {
-    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 202, gitUrl: '' }]);
+    setInstalledAddonsMeta([{ name: 'Questie', modId: 202, gitUrl: '' }]);
     setCurrentActiveSite('curseforge');
 
     const mockAddon: any = {

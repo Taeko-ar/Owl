@@ -145,4 +145,3 @@ export interface InstalledAddonSourceMeta {
   modId?: number;
   gitUrl?: string;
 }
-

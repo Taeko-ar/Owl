@@ -74,29 +74,37 @@ testWithAddons.describe('Addons Import/Export — With Installed Addons', () => 
     await expect(previewModal).toBeHidden();
   });
 
-  testWithAddons('import from file shows replacement warning modal when import_addon_files returns REPLACE_WARNING', async ({ addonsPage }) => {
-    // Override pick_files and import_addon_files
-    await addonsPage.evaluate(() => {
-      window.__OWL_INVOKE_OVERRIDES__['pick_files'] = () => Promise.resolve(['C:\\addon.zip']);
-      window.__OWL_INVOKE_OVERRIDES__['import_addon_files'] = () => Promise.reject('REPLACE_WARNING:temp|TestAddon');
-      window.__OWL_INVOKE_OVERRIDES__['confirm_install_bundled'] = () => Promise.resolve('Successfully imported: Dependency');
-    });
+  testWithAddons(
+    'import from file shows replacement warning modal when import_addon_files returns REPLACE_WARNING',
+    async ({ addonsPage }) => {
+      // Override pick_files and import_addon_files
+      await addonsPage.evaluate(() => {
+        const win = window as unknown as {
+          __OWL_INVOKE_OVERRIDES__: Record<string, () => unknown>;
+        };
+        win.__OWL_INVOKE_OVERRIDES__['pick_files'] = () => Promise.resolve(['C:\\addon.zip']);
+        win.__OWL_INVOKE_OVERRIDES__['import_addon_files'] = () =>
+          Promise.reject('REPLACE_WARNING:temp|TestAddon');
+        win.__OWL_INVOKE_OVERRIDES__['confirm_install_bundled'] = () =>
+          Promise.resolve('Successfully imported: Dependency');
+      });
 
-    const importBtn = addonsPage.locator('#importAddonBtn');
-    await importBtn.click();
+      const importBtn = addonsPage.locator('#importAddonBtn');
+      await importBtn.click();
 
-    const fileBtn = addonsPage.locator('#importFileBtn');
-    await expect(fileBtn).toBeVisible({ timeout: 2000 });
-    await fileBtn.click();
+      const fileBtn = addonsPage.locator('#importFileBtn');
+      await expect(fileBtn).toBeVisible({ timeout: 2000 });
+      await fileBtn.click();
 
-    // Verify replaceWarningModal is shown
-    const warningModal = addonsPage.locator('#replaceWarningModal');
-    await expect(warningModal).toBeVisible();
-    await expect(warningModal.locator('#replaceWarningList')).toContainText('TestAddon');
+      // Verify replaceWarningModal is shown
+      const warningModal = addonsPage.locator('#replaceWarningModal');
+      await expect(warningModal).toBeVisible();
+      await expect(warningModal.locator('#replaceWarningList')).toContainText('TestAddon');
 
-    // Click confirm button on warning modal
-    const confirmBtn = addonsPage.locator('#replaceWarningConfirmBtn');
-    await confirmBtn.click();
-    await expect(warningModal).toBeHidden();
-  });
+      // Click confirm button on warning modal
+      const confirmBtn = addonsPage.locator('#replaceWarningConfirmBtn');
+      await confirmBtn.click();
+      await expect(warningModal).toBeHidden();
+    }
+  );
 });

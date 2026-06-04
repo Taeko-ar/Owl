@@ -8,7 +8,7 @@ import {
   showReplaceWarningModal,
 } from '../ui/import';
 import { invoke } from '@tauri-apps/api/core';
-import { showTextInputModal, showToast } from '../utils';
+import { showTextInputModal } from '../utils';
 import { getCurrentActiveSite } from '../state';
 import { getTranslation } from '../i18n/index';
 import { handleImportString } from '../ui/import-export';
@@ -315,7 +315,9 @@ describe('Import UI Modal', () => {
 
     fileBtn.click();
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(document.getElementById('status')?.textContent).toBe(getTranslation('import.status.bundledAddon'));
+    expect(document.getElementById('status')?.textContent).toBe(
+      getTranslation('import.status.bundledAddon')
+    );
 
     // Click confirm to trigger onComplete callback (covers line 119)
     (invoke as any).mockImplementation((cmd: string) => {
@@ -370,9 +372,15 @@ describe('Import UI Modal', () => {
   });
 
   it('covers parseAndTranslateImportError helper function', () => {
-    expect(parseAndTranslateImportError('LOOSE_FILES:details')).toBe(getTranslation('import.error.looseFiles'));
-    expect(parseAndTranslateImportError('NO_TOC:details')).toBe(getTranslation('import.error.noToc'));
-    expect(parseAndTranslateImportError('CORRUPTED:details')).toBe(getTranslation('import.error.corrupted'));
+    expect(parseAndTranslateImportError('LOOSE_FILES:details')).toBe(
+      getTranslation('import.error.looseFiles')
+    );
+    expect(parseAndTranslateImportError('NO_TOC:details')).toBe(
+      getTranslation('import.error.noToc')
+    );
+    expect(parseAndTranslateImportError('CORRUPTED:details')).toBe(
+      getTranslation('import.error.corrupted')
+    );
     expect(parseAndTranslateImportError('SOME_OTHER_ERROR')).toBe('SOME_OTHER_ERROR');
   });
 
@@ -390,13 +398,15 @@ describe('Import UI Modal', () => {
 
     // 1. Confirm button path (success)
     const p1 = showBundledWarningModal('/base/path', '/temp/path', ['A1', 'A2'], onComplete);
-    
+
     // Check elements loaded
     const modal = document.getElementById('bundledAddonModal') as HTMLElement;
     expect(modal.classList.contains('hidden')).toBe(false);
 
     // Uncheck and check checkboxes to test updateConfirmBtn
-    const checkboxes = document.querySelectorAll('.bundled-addon-checkbox') as NodeListOf<HTMLInputElement>;
+    const checkboxes = document.querySelectorAll(
+      '.bundled-addon-checkbox'
+    ) as NodeListOf<HTMLInputElement>;
     expect(checkboxes.length).toBe(2);
     const confirmBtn = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
 
@@ -417,7 +427,7 @@ describe('Import UI Modal', () => {
     // Remove data-name from checkboxes[0] to cover falsy branch
     checkboxes[0].removeAttribute('data-name');
     confirmBtn.click();
-    
+
     const res1 = await p1;
     expect(res1).toBe('Success install');
     expect(onComplete).toHaveBeenCalled();
@@ -444,7 +454,9 @@ describe('Import UI Modal', () => {
     // 4. Confirm success (with missing status element)
     const p4 = showBundledWarningModal('/base/path', '/temp/path', ['A1'], onComplete);
     (invoke as any).mockResolvedValueOnce('Success');
-    const finalConfirmBtn = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
+    const finalConfirmBtn = document.getElementById(
+      'confirmBundledInstallBtn'
+    ) as HTMLButtonElement;
     finalConfirmBtn.click();
     const res4 = await p4;
     expect(res4).toBe('Success');
@@ -455,11 +467,15 @@ describe('Import UI Modal', () => {
     document.body.appendChild(statusDiv);
     const p5 = showBundledWarningModal('/base/path', '/temp/path', ['A1'], onComplete);
     (invoke as any).mockRejectedValueOnce('Error installing bundled 2');
-    const finalConfirmBtn2 = document.getElementById('confirmBundledInstallBtn') as HTMLButtonElement;
+    const finalConfirmBtn2 = document.getElementById(
+      'confirmBundledInstallBtn'
+    ) as HTMLButtonElement;
     finalConfirmBtn2.click();
     const res5 = await p5;
     expect(res5).toBeNull();
-    expect(document.getElementById('status')?.textContent).toBe('Error: Error installing bundled 2');
+    expect(document.getElementById('status')?.textContent).toBe(
+      'Error: Error installing bundled 2'
+    );
 
     // 6. Cancel path (with status element present)
     const p6 = showBundledWarningModal('/base/path', '/temp/path', ['A1'], onComplete);
@@ -468,7 +484,9 @@ describe('Import UI Modal', () => {
     finalCancelBtn.click();
     const res6 = await p6;
     expect(res6).toBeNull();
-    expect(document.getElementById('status')?.textContent).toBe(getTranslation('import.status.cancelled'));
+    expect(document.getElementById('status')?.textContent).toBe(
+      getTranslation('import.status.cancelled')
+    );
   });
 
   it('covers showDependencyModal completely', async () => {
@@ -490,12 +508,12 @@ describe('Import UI Modal', () => {
 
     // 2. Install path (success & failure branches)
     const p2 = showDependencyModal('/base/path', ['Dep1', 'Dep2']);
-    
+
     // Cover active site throw error path (line 261)
     (getCurrentActiveSite as any).mockImplementationOnce(() => {
       throw new Error('State error');
     });
-    
+
     // First dependency succeeds, second fails
     (invoke as any).mockImplementation((cmd: string, args: any) => {
       if (cmd === 'resolve_addon_dependency') {
@@ -509,10 +527,10 @@ describe('Import UI Modal', () => {
     });
 
     const installBtn = document.getElementById('dependencyInstallBtn') as HTMLButtonElement;
-    
+
     // Remove status element to cover missing status branch in dependency modal
     document.getElementById('status')?.remove();
-    
+
     installBtn.click();
     await p2;
     expect(invoke).toHaveBeenCalledWith('resolve_addon_dependency', {
@@ -533,7 +551,7 @@ describe('Import UI Modal', () => {
 
     const p3 = showDependencyModal('/base/path', ['Dep1']);
     (getCurrentActiveSite as any).mockReturnValueOnce('mock');
-    
+
     const installBtn2 = document.getElementById('dependencyInstallBtn') as HTMLButtonElement;
     installBtn2.click();
     await p3;
@@ -574,7 +592,7 @@ describe('Import UI Modal', () => {
     }, 10);
 
     await handlePostInstallDependencyCheck('/base/path', 'Imported:A1,A2');
-    
+
     // Check successMessage with 'Imported addon ' format (this will not have missing deps, so no modal)
     await handlePostInstallDependencyCheck('/base/path', 'Imported addon A3 version 1');
 
@@ -614,7 +632,8 @@ describe('Import UI Modal', () => {
     // Case 1: REPLACE_WARNING error and confirm replace
     (invoke as any).mockImplementation((cmd: string) => {
       if (cmd === 'pick_files') return Promise.resolve(['/downloads/addon.zip']);
-      if (cmd === 'import_addon_files') return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
+      if (cmd === 'import_addon_files')
+        return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
       if (cmd === 'confirm_install_bundled') return Promise.resolve('Success');
       return Promise.resolve();
     });
@@ -632,7 +651,8 @@ describe('Import UI Modal', () => {
     // Case 2: REPLACE_WARNING error and cancel replace
     (invoke as any).mockImplementation((cmd: string) => {
       if (cmd === 'pick_files') return Promise.resolve(['/downloads/addon.zip']);
-      if (cmd === 'import_addon_files') return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
+      if (cmd === 'import_addon_files')
+        return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
       if (cmd === 'cleanup_temp_archive') return Promise.resolve();
       return Promise.resolve();
     });
@@ -646,6 +666,25 @@ describe('Import UI Modal', () => {
     fileBtn.click();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(document.getElementById('status')?.textContent).toBe('Import cancelled.');
+
+    // Case 3: REPLACE_WARNING error and confirm replace throws error
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'pick_files') return Promise.resolve(['/downloads/addon.zip']);
+      if (cmd === 'import_addon_files')
+        return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
+      if (cmd === 'confirm_install_bundled') return Promise.reject('Confirm failed');
+      return Promise.resolve();
+    });
+
+    // Simulate clicking the confirm button when the warning modal appears
+    setTimeout(() => {
+      const confirmBtn = document.getElementById('replaceWarningConfirmBtn');
+      if (confirmBtn) confirmBtn.click();
+    }, 10);
+
+    fileBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.getElementById('status')?.textContent).toBe('Error: Confirm failed');
   });
 
   it('covers showReplaceWarningModal completely', async () => {
@@ -674,5 +713,46 @@ describe('Import UI Modal', () => {
     const res2 = await p2;
     expect(res2).toBe(false);
     expect(invoke).toHaveBeenCalledWith('cleanup_temp_archive', { tempDirPath: 'temp_path' });
+  });
+
+  it('covers REPLACE_WARNING missing statusFooter, gamePath, and cancelled branches in import.ts', async () => {
+    document.body.innerHTML = `
+      <button id="importAddonBtn">Import</button>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="replaceWarningModal" class="hidden">
+        <div id="replaceWarningList"></div>
+        <button id="replaceWarningConfirmBtn"></button>
+        <button id="replaceWarningCancelBtn"></button>
+      </div>
+    `;
+
+    setupImportModalEvents();
+    const mainImportBtn = document.getElementById('importAddonBtn') as HTMLElement;
+    mainImportBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const overlay = document.querySelector('.fixed.inset-0') as HTMLElement;
+    const fileBtn = overlay.querySelector('#importFileBtn') as HTMLElement;
+
+    // 1. Missing statusFooter, but proceed (confirm) is true
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'pick_files') return Promise.resolve(['/downloads/addon.zip']);
+      if (cmd === 'import_addon_files')
+        return Promise.reject('REPLACE_WARNING:temp_path|addon1,addon2');
+      if (cmd === 'confirm_install_bundled') return Promise.resolve('Success');
+      return Promise.resolve();
+    });
+
+    setTimeout(() => {
+      document.getElementById('replaceWarningConfirmBtn')?.click();
+    }, 10);
+
+    fileBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // 2. Missing gamePath, proceed is true
+    document.getElementById('gamePath')?.remove();
+    fileBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
   });
 });

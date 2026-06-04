@@ -373,7 +373,9 @@ describe('Settings UI Module', () => {
     // 5. checkLauncherUpdates manual check (no updates available)
     (invoke as any).mockResolvedValueOnce(null);
     await checkLauncherUpdates(true);
-    expect(document.getElementById('settingsUpdateContainer')?.innerHTML).toContain('Launcher is up-to-date');
+    expect(document.getElementById('settingsUpdateContainer')?.innerHTML).toContain(
+      'Launcher is up-to-date'
+    );
     // Run timeouts to restore label
     vi.runAllTimers();
     expect(document.getElementById('settingsUpdateLabel')).not.toBeNull();
@@ -487,5 +489,46 @@ describe('Settings UI Module', () => {
     await Promise.resolve();
 
     vi.useRealTimers();
+  });
+
+  it('covers remaining settings.ts edge branches', async () => {
+    // 1. showUpdateDetails when #updateModalTitle element is missing
+    document.body.innerHTML = `
+      <div id="updateDetailsModal" class="hidden">
+        <div id="updateChangelogContent"></div>
+      </div>
+      <div id="settingsUpdateContainer">
+        <span id="settingsUpdateLabel">Check updates...</span>
+      </div>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'check_update_details') {
+        return Promise.resolve({ version: '1.5.0', body: 'New version info' });
+      }
+      return Promise.resolve();
+    });
+    // Check update to populate cachedUpdate
+    await checkLauncherUpdates(true);
+    // Click label (it has no title in DOM now)
+    document.getElementById('settingsUpdateLabel')?.click();
+    expect(document.getElementById('updateDetailsModal')?.classList.contains('hidden')).toBe(false);
+
+    // 2. setLauncherWindowSize with invalid width/height
+    await setLauncherWindowSize('1024x');
+    await setLauncherWindowSize('x768');
+
+    // 3. settings apply when activeTab has no data-tab attribute
+    document.body.innerHTML = `
+      <div id="settingsModal" class="hidden">
+        <button id="applySettings"></button>
+      </div>
+      <input id="gamePath" value="/original" />
+      <input type="checkbox" id="stayOpen" checked />
+      <div class="nav-tab active"></div> <!-- no data-tab attribute -->
+    `;
+    setupSettingsEvents(async () => {});
+    (invoke as any).mockResolvedValue(undefined);
+    document.getElementById('applySettings')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });

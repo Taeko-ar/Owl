@@ -9,10 +9,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 vi.mock('../ui/import', () => ({
-  showBundledWarningModal: vi.fn().mockImplementation(async (gamePath, tempPath, names, callback) => {
-    if (callback) await callback();
-    return true;
-  }),
+  showBundledWarningModal: vi
+    .fn()
+    .mockImplementation(async (gamePath, tempPath, names, callback) => {
+      if (callback) await callback();
+      return true;
+    }),
+  showReplaceWarningModal: vi.fn(),
   parseAndTranslateImportError: vi.fn().mockImplementation((e) => e),
   handlePostInstallDependencyCheck: vi.fn().mockImplementation(() => Promise.resolve()),
 }));
@@ -381,10 +384,12 @@ describe('Store Download Module', () => {
       </table>
     `;
     const importModule = await import('../ui/import');
-    vi.mocked(importModule.showBundledWarningModal).mockImplementation(async (gamePath, tempPath, names, callback) => {
-      if (callback) await callback();
-      return true;
-    }); // user confirms
+    vi.mocked(importModule.showBundledWarningModal).mockImplementation(
+      async (gamePath, tempPath, names, callback) => {
+        if (callback) await callback();
+        return 'success';
+      }
+    ); // user confirms
     vi.mocked(invoke).mockRejectedValue('BUNDLED:temp|A1,A2');
 
     selectedAddons.set('cf-101', {
@@ -414,7 +419,7 @@ describe('Store Download Module', () => {
       addon: mockAddon,
       selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
     });
-    vi.mocked(importModule.showBundledWarningModal).mockResolvedValue(false); // user cancels
+    vi.mocked(importModule.showBundledWarningModal).mockResolvedValue(null); // user cancels
     await installSelectedAddons();
     vi.runAllTimers();
 
@@ -433,10 +438,136 @@ describe('Store Download Module', () => {
       addon: mockAddon,
       selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
     });
-    vi.mocked(importModule.showBundledWarningModal).mockImplementation(async (gamePath, tempPath, names, callback) => {
-      if (callback) await callback();
-      return true;
+    vi.mocked(importModule.showBundledWarningModal).mockImplementation(
+      async (gamePath, tempPath, names, callback) => {
+        if (callback) await callback();
+        return 'success';
+      }
+    );
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 8a. REPLACE_WARNING error (confirm path)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <table>
+        <tr data-key="cf-101">
+          <td class="store-status-cell"></td>
+        </tr>
+      </table>
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
     });
+    vi.mocked(importModule.showReplaceWarningModal).mockResolvedValue(true);
+    vi.mocked(invoke).mockRejectedValueOnce('REPLACE_WARNING:temp|A1');
+    vi.mocked(invoke).mockResolvedValueOnce('Success'); // confirm_install_bundled
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 8b. REPLACE_WARNING error (confirm path, confirm failure)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <table>
+        <tr data-key="cf-101">
+          <td class="store-status-cell"></td>
+        </tr>
+      </table>
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showReplaceWarningModal).mockResolvedValue(true);
+    vi.mocked(invoke).mockRejectedValueOnce('REPLACE_WARNING:temp|A1');
+    vi.mocked(invoke).mockRejectedValueOnce('Confirm failed'); // confirm_install_bundled fails
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 8c. REPLACE_WARNING error (cancel path)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <table>
+        <tr data-key="cf-101">
+          <td class="store-status-cell"></td>
+        </tr>
+      </table>
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showReplaceWarningModal).mockResolvedValue(false);
+    vi.mocked(invoke).mockRejectedValueOnce('REPLACE_WARNING:temp|A1');
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 8d. REPLACE_WARNING error (confirm path + missing status cell)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showReplaceWarningModal).mockResolvedValue(true);
+    vi.mocked(invoke).mockRejectedValueOnce('REPLACE_WARNING:temp|A1');
+    vi.mocked(invoke).mockResolvedValueOnce('Success'); // confirm_install_bundled
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 8e. REPLACE_WARNING error (confirm path + missing status cell + confirm failure)
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+    `;
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showReplaceWarningModal).mockResolvedValue(true);
+    vi.mocked(invoke).mockRejectedValueOnce('REPLACE_WARNING:temp|A1');
+    vi.mocked(invoke).mockRejectedValueOnce('Confirm failed'); // confirm_install_bundled fails
     await installSelectedAddons();
     vi.runAllTimers();
 

@@ -1,6 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { escapeHtml } from '../utils';
-import { selectedAddons, setCurrentActiveSite, setDetectedGameVersion, setInstalledAddonsMeta } from '../state';
+import {
+  selectedAddons,
+  setCurrentActiveSite,
+  setDetectedGameVersion,
+  setInstalledAddonsMeta,
+} from '../state';
 import { InstalledAddonSourceMeta } from '../types';
 import { getReleaseTypeName } from './github';
 import { installSelectedAddons } from './download';
@@ -65,9 +70,12 @@ export function setupStoreEvents(reloadCallback: () => Promise<void>) {
     }
 
     try {
-      const installedMeta = await invoke<InstalledAddonSourceMeta[]>('get_installed_addons_source_meta', {
-        basePath: gamePathInput().value,
-      });
+      const installedMeta = await invoke<InstalledAddonSourceMeta[]>(
+        'get_installed_addons_source_meta',
+        {
+          basePath: gamePathInput().value,
+        }
+      );
       setInstalledAddonsMeta(installedMeta);
     } catch (err) {
       console.error('Failed to get installed addons meta:', err);

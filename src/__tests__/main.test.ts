@@ -343,9 +343,32 @@ describe('Main Application Entrypoint', () => {
       <button id="playBtn" data-action="install">Play</button>
       <div id="installChoiceModal" class="hidden"></div>
       <div id="status"></div>
+      <button class="nav-tab" id="disabledTab" data-tab="addons" disabled></button>
+      <button class="nav-tab active" id="addonsTab" data-tab="addons"></button>
+      <button class="nav-tab" id="tweaksTab" data-tab="tweaks"></button>
+      <button class="nav-tab" id="modsTab" data-tab="mods"></button>
+      <div id="addons-list"><div>dummy</div></div>
+      <div id="patches-list"><div>dummy</div></div>
+      <div id="config-tree"><div>dummy</div></div>
+      <div id="addons-tab" class="tab-content"></div>
+      <div id="mods-tab" class="tab-content hidden"></div>
+      <div id="tweaks-tab" class="tab-content hidden"></div>
     `;
 
     await import('../main');
+
+    // 0. Trigger tab clicks to cover disabled tab, and children checks
+    const disabledTab = document.getElementById('disabledTab') as HTMLButtonElement;
+    disabledTab.dispatchEvent(new Event('click')); // JSDOM click() might be blocked on disabled but event listener can be forced
+
+    const addonsTab = document.getElementById('addonsTab') as HTMLButtonElement;
+    addonsTab.click();
+
+    const tweaksTab = document.getElementById('tweaksTab') as HTMLButtonElement;
+    tweaksTab.click();
+
+    const modsTab = document.getElementById('modsTab') as HTMLButtonElement;
+    modsTab.click();
 
     const playBtn = document.getElementById('playBtn') as HTMLButtonElement;
     const installModal = document.getElementById('installChoiceModal') as HTMLElement;
@@ -357,7 +380,9 @@ describe('Main Application Entrypoint', () => {
     // 2. playBtn with action="download"
     playBtn.setAttribute('data-action', 'download');
     let torrentModalOpened = false;
-    const handler = () => { torrentModalOpened = true; };
+    const handler = () => {
+      torrentModalOpened = true;
+    };
     window.addEventListener('open-torrent-modal', handler);
     playBtn.click();
     expect(torrentModalOpened).toBe(true);
@@ -377,9 +402,11 @@ describe('Main Application Entrypoint', () => {
     const callbackId = win.__TAURI_INTERNALS__.transformCallback(() => {});
     expect(callbackId).toBeDefined();
     expect(typeof win[callbackId]).toBe('function');
+    win[callbackId](); // execute the callback to cover it
 
     // Call postMessage
     win.__TAURI_INTERNALS__.postMessage();
+    win.__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener();
 
     // Call invoke mock override
     win.__OWL_INVOKE_MOCK__ = vi.fn().mockResolvedValue('mocked_override');
@@ -408,9 +435,15 @@ describe('Main Application Entrypoint', () => {
 
     // save_addon_profile
     win.__OWL_MOCK_PROFILES__ = undefined;
-    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', { name: 'New', enabledAddons: ['b'] });
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', {
+      name: 'New',
+      enabledAddons: ['b'],
+    });
     win.__OWL_MOCK_PROFILES__ = [{ name: 'Existing', enabledAddons: [] }];
-    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', { name: 'Existing', enabledAddons: ['a'] });
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', {
+      name: 'Existing',
+      enabledAddons: ['a'],
+    });
 
     // apply_addon_profile
     await win.__TAURI_INTERNALS__.invoke('apply_addon_profile', { name: 'All Addons' });
@@ -421,7 +454,10 @@ describe('Main Application Entrypoint', () => {
 
     // rename_addon_profile
     win.__OWL_MOCK_ACTIVE_PROFILE__ = 'Existing';
-    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', { oldName: 'Existing', newName: 'Renamed' });
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', {
+      oldName: 'Existing',
+      newName: 'Renamed',
+    });
 
     // search_curseforge_addons
     await win.__TAURI_INTERNALS__.invoke('search_curseforge_addons');
@@ -450,11 +486,40 @@ describe('Main Application Entrypoint', () => {
     // export_addon_list
     await win.__TAURI_INTERNALS__.invoke('export_addon_list');
 
+    // get_installed_addons_source_meta
+    win.__OWL_MOCK_ADDONS__ = ['Questie', 'SomeAddon-disabled'];
+    await win.__TAURI_INTERNALS__.invoke('get_installed_addons_source_meta');
+    win.__OWL_MOCK_ADDONS__ = undefined;
+    await win.__TAURI_INTERNALS__.invoke('get_installed_addons_source_meta');
+
+    // save_addon_profile
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile');
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', { enabledAddons: undefined });
+
+    // delete_addon_profile
+    win.__OWL_MOCK_PROFILES__ = undefined;
+    win.__OWL_MOCK_ACTIVE_PROFILE__ = 'some_profile';
+    await win.__TAURI_INTERNALS__.invoke('delete_addon_profile', { name: 'other_name' });
+
+    // rename_addon_profile
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile');
+    win.__OWL_MOCK_PROFILES__ = undefined;
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', { oldName: 'a', newName: 'b' });
+    win.__OWL_MOCK_PROFILES__ = [{ name: 'a', enabledAddons: [] }];
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', {
+      oldName: 'nonexistent',
+      newName: 'b',
+    });
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', {
+      oldName: 'a',
+      newName: undefined,
+    });
+
     // validate_import_string
     await win.__TAURI_INTERNALS__.invoke('validate_import_string', { importStr: 'valid' });
     try {
       await win.__TAURI_INTERNALS__.invoke('validate_import_string', { importStr: 'invalid' });
-    } catch (e) {
+    } catch {
       // expected
     }
 

@@ -243,5 +243,23 @@ describe('Store Events Module', () => {
     setupStoreEvents(reloadCallbackSpy);
     const select = document.getElementById('curseforgeCategorySelect') as HTMLSelectElement;
     select.dispatchEvent(new Event('change'));
+
+    // 7. get_installed_addons_source_meta failure
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <button id="getAddonsBtn"></button>
+      <div id="storeModal" class="hidden"></div>
+      <div id="githubTagFilters"></div>
+    `;
+    vi.mocked(invoke).mockImplementation((cmd: string) => {
+      if (cmd === 'get_installed_addons_source_meta') {
+        return Promise.reject('Installed meta error');
+      }
+      return Promise.resolve();
+    });
+    setupStoreEvents(reloadCallbackSpy);
+    const getAddonsBtnFail = document.getElementById('getAddonsBtn') as HTMLButtonElement;
+    getAddonsBtnFail.click();
+    await new Promise((r) => setTimeout(r, 0));
   });
 });

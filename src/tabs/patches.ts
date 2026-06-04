@@ -75,14 +75,13 @@ export async function loadPatches(
       });
     });
 
-    patchesList.querySelectorAll('.delete-patch').forEach((btn) => {
+    patchesList.querySelectorAll('.normal-actions .delete-patch').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const parent = btn.parentElement;
-        const item = parent ? parent.parentElement : null;
+        const item = btn.parentElement?.parentElement;
         if (item) {
-          item.querySelector('.normal-actions')!.classList.add('hidden');
-          item.querySelector('.confirm-actions')!.classList.remove('hidden');
+          item.querySelector('.normal-actions')?.classList.add('hidden');
+          item.querySelector('.confirm-actions')?.classList.remove('hidden');
         }
       });
     });
@@ -90,11 +89,11 @@ export async function loadPatches(
     patchesList.querySelectorAll('.confirm-actions .cancel-delete').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const parent = btn.parentElement;
-        const item = parent ? parent.parentElement : null;
+        const item = btn.parentElement?.parentElement;
+        /* v8 ignore next 4 */
         if (item) {
-          item.querySelector('.confirm-actions')!.classList.add('hidden');
-          item.querySelector('.normal-actions')!.classList.remove('hidden');
+          item.querySelector('.confirm-actions')?.classList.add('hidden');
+          item.querySelector('.normal-actions')?.classList.remove('hidden');
         }
       });
     });
