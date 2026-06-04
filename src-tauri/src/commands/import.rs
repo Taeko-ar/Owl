@@ -156,6 +156,20 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
         let validation = validate_addon_archive(&extract_dir, &filename)?;
         match validation {
             ArchiveValidation::Valid { addon_dirs } => {
+                let mut conflicts = Vec::new();
+                for dir in &addon_dirs {
+                    if let Some(dir_name) = dir.file_name().and_then(|s| s.to_str()) {
+                        let target_dir = addons_dir.join(dir_name);
+                        if target_dir.exists() {
+                            conflicts.push(dir_name.to_string());
+                        }
+                    }
+                }
+
+                if !conflicts.is_empty() {
+                    return Err(format!("REPLACE_WARNING:{}|{}", extract_dir.to_string_lossy(), conflicts.join(",")));
+                }
+
                 for dir in addon_dirs {
                     if let Some(dir_name) = dir.file_name().and_then(|s| s.to_str()) {
                         let target_dir = addons_dir.join(dir_name);

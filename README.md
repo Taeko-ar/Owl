@@ -14,13 +14,18 @@
 
 - **Addon & Patch Management**:
   - Enable, disable, delete, and update installed addons and patches/mods
+  - Save, apply, rename, and delete custom addon configurations with the **User Profiles** system
+  - Import and export addon configurations to share or back up setups easily
   - Manage Git branches directly from the interface for git-based addons
   - Scan and open addon/patch folders instantly
 - **Import addons from addon stores**:
-  - Supports installation of addons directly from **CurseForge** and **GitHub**.
-  - Filter catalog by categories and target game versions (Vanilla vs. WotLK).
-- **Game Configuration**:
-  - Edit `config.wtf` game settings (tweaks) directly through a user-friendly configuration panel.
+  - Supports installation of addons directly from **CurseForge** and **GitHub**
+  - Automatic dependency detection and installation when importing addons
+  - Filter catalog by categories and target game versions (Vanilla vs. WotLK)
+- **Game Configuration & Downloader**:
+  - Built-in torrent downloader integrated with `librqbit` to download the game client via magnet links or `.torrent` files with progress tracking, speed display, and pause/resume/cancel controls
+  - Setup choices modal on startup to locate existing game paths or download a new client
+  - Edit `config.wtf` game settings (tweaks) directly through a user-friendly configuration panel
 - **Utilities**:
   - Multi-language support (English, Spanish (Latam), Portuguese (Brasil))
   - Dark/Light mode

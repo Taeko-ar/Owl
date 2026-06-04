@@ -159,6 +159,62 @@ test.describe('Store Modal — GitHub Tab', () => {
   });
 });
 
+test.describe('Store Modal — Installed Addon indicator', () => {
+  let navbar: NavbarPage;
+  let store: StorePage;
+
+  test.beforeEach(async ({ appPage, setMockAddons }) => {
+    navbar = new NavbarPage(appPage);
+    store = new StorePage(appPage);
+    await setMockAddons(['Questie']);
+    await navbar.openStore();
+    await store.addonCards().first().waitFor({ state: 'visible' });
+  });
+
+  test('displays Installed badge on card and disables selection', async () => {
+    const questieCard = store.addonCard('Questie');
+    await expect(questieCard.locator('span:has-text("Installed")')).toBeVisible();
+
+    const checkbox = questieCard.locator('.store-addon-checkbox');
+    await expect(checkbox).toBeDisabled();
+
+    await store.clickAddonCard('Questie');
+    await expect(store.selectBtn).toBeDisabled();
+    await expect(store.selectBtn).toHaveText('Installed');
+  });
+
+  test('shows replacement warning modal when download_and_extract_addon returns REPLACE_WARNING', async ({ appPage }) => {
+    // Override download_and_extract_addon to return REPLACE_WARNING
+    await appPage.evaluate(() => {
+      window.__OWL_INVOKE_OVERRIDES__['download_and_extract_addon'] = () => {
+        return Promise.reject('REPLACE_WARNING:temp|Questie');
+      };
+      window.__OWL_INVOKE_OVERRIDES__['cleanup_temp_archive'] = () => Promise.resolve();
+    });
+
+    // Uncheck/check or select another addon since Questie is marked installed and disabled.
+    // Actually, setMockAddons has ['Questie'], making Questie disabled. We can just use the checkbox of the second card (Deadly Boss Mods).
+    const dbmCard = store.addonCard('Deadly Boss Mods');
+    await store.clickAddonCard('Deadly Boss Mods');
+    await store.checkAddon(1); // Select Deadly Boss Mods (index 1)
+    await store.openReview();
+    
+    // Click the confirm button in review modal to start installation
+    const confirmBtn = appPage.locator('#store-modal-confirm');
+    await confirmBtn.click();
+
+    // Verify replaceWarningModal is shown
+    const warningModal = appPage.locator('#replaceWarningModal');
+    await expect(warningModal).toBeVisible();
+    await expect(warningModal.locator('#replaceWarningList')).toContainText('Questie');
+
+    // Click cancel button on warning modal
+    const cancelBtn = appPage.locator('#replaceWarningCancelBtn');
+    await cancelBtn.click();
+    await expect(warningModal).toBeHidden();
+  });
+});
+
 testWithAddons.describe('Store Modal — GitHub Tab Search', () => {
   let store: StorePage;
 

@@ -158,6 +158,9 @@ pub async fn download_and_extract_addon(
 
     match validation {
         ArchiveValidation::Valid { addon_dirs } => {
+            let mut conflicts = Vec::new();
+            let mut resolved = Vec::new();
+
             for dir in addon_dirs {
                 let mut target_name = dir
                     .file_name()
@@ -186,10 +189,36 @@ pub async fn download_and_extract_addon(
 
                 let target_dir = addons_dir.join(&target_name);
                 if target_dir.exists() {
+                    conflicts.push(target_name.clone());
+                }
+
+                let final_temp_dir = dir.parent().unwrap().join(&target_name);
+                if dir != final_temp_dir {
+                    let _ = fs::rename(&dir, &final_temp_dir);
+                }
+                resolved.push(target_name);
+            }
+
+            if !conflicts.is_empty() {
+                if let (Some(m_id), Some(f_id)) = (mod_id, file_id) {
+                    let meta = CurseForgeMeta {
+                        mod_id: m_id,
+                        file_id: f_id,
+                    };
+                    if let Ok(meta_json) = serde_json::to_string_pretty(&meta) {
+                        let _ = fs::write(content_dir.join(".owl-cf-meta.json"), &meta_json);
+                    }
+                }
+                return Err(format!("REPLACE_WARNING:{}|{}", content_dir.to_string_lossy(), conflicts.join(",")));
+            }
+
+            for target_name in &resolved {
+                let target_dir = addons_dir.join(target_name);
+                if target_dir.exists() {
                     fs::remove_dir_all(&target_dir).map_err(|e| e.to_string())?;
                 }
-                copy_dir_recursive(&dir, &target_dir)?;
-                imported.push(target_name);
+                copy_dir_recursive(&content_dir.join(target_name), &target_dir)?;
+                imported.push(target_name.clone());
             }
 
             if let (Some(m_id), Some(f_id)) = (mod_id, file_id) {

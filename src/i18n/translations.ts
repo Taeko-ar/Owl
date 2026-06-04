@@ -111,6 +111,7 @@ export const translations: Record<string, Record<string, string>> = {
     'store.versionSelection': 'Version Selection',
     'store.selectForDownload': 'Download',
     'store.deselectForDownload': 'Queued',
+    'store.installed': 'Installed',
     'store.close': 'Close',
     'store.confirmDeleteAddon': 'Are you sure you want to delete the addon "{name}"?',
     'store.confirmDeletePatch': 'Are you sure you want to delete the patch "{name}"?',
@@ -230,6 +231,9 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.twitchIntegration': 'Twitch Integration',
     'store.categories.unitFrames': 'Unit Frames',
     'import.bundledTitle': 'Warning: Bundled Addon',
+    'import.replaceTitle': 'Warning: Replace Existing Files',
+    'import.replaceDesc':
+      'The files that are going to be extracted will replace existing files because they have the same name. Do you want to continue?',
     'import.bundledDesc':
       'This archive contains multiple addon folders. Installing it will add the following directories to your AddOns folder:',
     'import.bundledConfirm': 'Install All',
@@ -413,6 +417,7 @@ export const translations: Record<string, Record<string, string>> = {
     'store.versionSelection': 'Selección de versión',
     'store.selectForDownload': 'Descargar',
     'store.deselectForDownload': 'En cola',
+    'store.installed': 'Instalado',
     'store.close': 'Cerrar',
     'store.confirmDeleteAddon': '¿Estás seguro de que deseas eliminar el complemento "{name}"?',
     'store.confirmDeletePatch': '¿Estás seguro de que deseas eliminar el parche "{name}"?',
@@ -532,6 +537,9 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.twitchIntegration': 'Integración con Twitch',
     'store.categories.unitFrames': 'Marcos de unidad',
     'import.bundledTitle': 'Advertencia: Complemento agrupado',
+    'import.replaceTitle': 'Advertencia: Reemplazar archivos existentes',
+    'import.replaceDesc':
+      'Los archivos que se van a extraer reemplazarán los archivos existentes porque tienen el mismo nombre. ¿Desea continuar?',
     'import.bundledDesc':
       'Este archivo contiene múltiples carpetas de complementos. Al instalarlo, se agregarán los siguientes directorios a su carpeta AddOns:',
     'import.bundledConfirm': 'Instalar todo',
@@ -716,6 +724,7 @@ export const translations: Record<string, Record<string, string>> = {
     'store.versionSelection': 'Seleção de versão',
     'store.selectForDownload': 'Baixar',
     'store.deselectForDownload': 'Na fila',
+    'store.installed': 'Instalado',
     'store.close': 'Fechar',
     'store.confirmDeleteAddon': 'Tem certeza de que deseja excluir o addon "{name}"?',
     'store.confirmDeletePatch': 'Tem certeza de que deseja excluir o patch "{name}"?',
@@ -834,7 +843,10 @@ export const translations: Record<string, Record<string, string>> = {
     'store.categories.tooltip': 'Dica de ferramenta',
     'store.categories.twitchIntegration': 'Integração com o Twitch',
     'store.categories.unitFrames': 'Quadros de unidade',
-    'import.bundledTitle': 'Aviso: Addon Empacotado',
+    'import.bundledTitle': 'Aviso: Addon agrupado',
+    'import.replaceTitle': 'Aviso: Substituir arquivos existentes',
+    'import.replaceDesc':
+      'Os arquivos que serão extraídos substituirão os arquivos existentes porque têm o mesmo nome. Deseja continuar?',
     'import.bundledDesc':
       'Este arquivo contém várias pastas de addons. Instalar ele irá adicionar os seguintes diretórios à sua pasta AddOns:',
     'import.bundledConfirm': 'Instalar Tudo',

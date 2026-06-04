@@ -78,11 +78,11 @@ export async function loadPatches(
     patchesList.querySelectorAll('.delete-patch').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const normalActions = btn.parentElement;
-        const confirmActions = normalActions?.nextElementSibling;
-        if (normalActions && confirmActions) {
-          normalActions.classList.add('hidden');
-          confirmActions.classList.remove('hidden');
+        const parent = btn.parentElement;
+        const item = parent ? parent.parentElement : null;
+        if (item) {
+          item.querySelector('.normal-actions')!.classList.add('hidden');
+          item.querySelector('.confirm-actions')!.classList.remove('hidden');
         }
       });
     });
@@ -90,11 +90,11 @@ export async function loadPatches(
     patchesList.querySelectorAll('.confirm-actions .cancel-delete').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const confirmActions = btn.parentElement;
-        const normalActions = confirmActions?.previousElementSibling;
-        if (confirmActions && normalActions) {
-          confirmActions.classList.add('hidden');
-          normalActions.classList.remove('hidden');
+        const parent = btn.parentElement;
+        const item = parent ? parent.parentElement : null;
+        if (item) {
+          item.querySelector('.confirm-actions')!.classList.add('hidden');
+          item.querySelector('.normal-actions')!.classList.remove('hidden');
         }
       });
     });

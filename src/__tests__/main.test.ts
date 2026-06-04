@@ -336,4 +336,129 @@ describe('Main Application Entrypoint', () => {
     if (tabEl) tabEl.remove();
     enLangBtn.click();
   });
+
+  it('covers playBtn install/download actions, contextmenu prevention, and browser fallback internals', async () => {
+    vi.resetModules();
+    document.body.innerHTML = `
+      <button id="playBtn" data-action="install">Play</button>
+      <div id="installChoiceModal" class="hidden"></div>
+      <div id="status"></div>
+    `;
+
+    await import('../main');
+
+    const playBtn = document.getElementById('playBtn') as HTMLButtonElement;
+    const installModal = document.getElementById('installChoiceModal') as HTMLElement;
+
+    // 1. playBtn with action="install"
+    playBtn.click();
+    expect(installModal.classList.contains('hidden')).toBe(false);
+
+    // 2. playBtn with action="download"
+    playBtn.setAttribute('data-action', 'download');
+    let torrentModalOpened = false;
+    const handler = () => { torrentModalOpened = true; };
+    window.addEventListener('open-torrent-modal', handler);
+    playBtn.click();
+    expect(torrentModalOpened).toBe(true);
+    window.removeEventListener('open-torrent-modal', handler);
+
+    // 3. contextmenu prevention
+    const contextEvent = new MouseEvent('contextmenu', { cancelable: true });
+    document.dispatchEvent(contextEvent);
+    expect(contextEvent.defaultPrevented).toBe(true);
+
+    // 4. browser fallback internals
+    const win = window as any;
+    expect(win.__TAURI_INTERNALS__).toBeDefined();
+    expect(win.__TAURI_EVENT_PLUGIN_INTERNALS__).toBeDefined();
+
+    // Call transformCallback
+    const callbackId = win.__TAURI_INTERNALS__.transformCallback(() => {});
+    expect(callbackId).toBeDefined();
+    expect(typeof win[callbackId]).toBe('function');
+
+    // Call postMessage
+    win.__TAURI_INTERNALS__.postMessage();
+
+    // Call invoke mock override
+    win.__OWL_INVOKE_MOCK__ = vi.fn().mockResolvedValue('mocked_override');
+    const overrideRes = await win.__TAURI_INTERNALS__.invoke('some_command');
+    expect(overrideRes).toBe('mocked_override');
+    win.__OWL_INVOKE_MOCK__ = undefined;
+
+    // Test cases in fallback invoke switch
+    await win.__TAURI_INTERNALS__.invoke('load_settings');
+    await win.__TAURI_INTERNALS__.invoke('get_addon_profiles');
+    await win.__TAURI_INTERNALS__.invoke('get_addons');
+    await win.__TAURI_INTERNALS__.invoke('get_patches');
+
+    win.__OWL_MOCK_VALIDATE_GAME_PATH__ = undefined;
+    await win.__TAURI_INTERNALS__.invoke('validate_game_path');
+    win.__OWL_MOCK_VALIDATE_GAME_PATH__ = false;
+    await win.__TAURI_INTERNALS__.invoke('validate_game_path');
+
+    await win.__TAURI_INTERNALS__.invoke('get_active_downloads');
+    await win.__TAURI_INTERNALS__.invoke('check_update_details');
+    await win.__TAURI_INTERNALS__.invoke('get_app_version');
+    await win.__TAURI_INTERNALS__.invoke('git_status');
+    await win.__TAURI_INTERNALS__.invoke('read_config');
+    await win.__TAURI_INTERNALS__.invoke('parse_toc');
+    await win.__TAURI_INTERNALS__.invoke('parse_toc', { addonName: 'Other' });
+
+    // save_addon_profile
+    win.__OWL_MOCK_PROFILES__ = undefined;
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', { name: 'New', enabledAddons: ['b'] });
+    win.__OWL_MOCK_PROFILES__ = [{ name: 'Existing', enabledAddons: [] }];
+    await win.__TAURI_INTERNALS__.invoke('save_addon_profile', { name: 'Existing', enabledAddons: ['a'] });
+
+    // apply_addon_profile
+    await win.__TAURI_INTERNALS__.invoke('apply_addon_profile', { name: 'All Addons' });
+    await win.__TAURI_INTERNALS__.invoke('apply_addon_profile', { name: 'Custom' });
+
+    // delete_addon_profile
+    await win.__TAURI_INTERNALS__.invoke('delete_addon_profile', { name: 'Custom' });
+
+    // rename_addon_profile
+    win.__OWL_MOCK_ACTIVE_PROFILE__ = 'Existing';
+    await win.__TAURI_INTERNALS__.invoke('rename_addon_profile', { oldName: 'Existing', newName: 'Renamed' });
+
+    // search_curseforge_addons
+    await win.__TAURI_INTERNALS__.invoke('search_curseforge_addons');
+
+    // get_curseforge_mod_files
+    await win.__TAURI_INTERNALS__.invoke('get_curseforge_mod_files');
+
+    // get_curseforge_mod_description
+    await win.__TAURI_INTERNALS__.invoke('get_curseforge_mod_description');
+
+    // search_github_addons
+    await win.__TAURI_INTERNALS__.invoke('search_github_addons');
+
+    // get_github_releases
+    await win.__TAURI_INTERNALS__.invoke('get_github_releases');
+
+    // download_curseforge_addon / return null cases
+    await win.__TAURI_INTERNALS__.invoke('download_curseforge_addon');
+
+    // confirm_install_bundled / resolve_addon_dependency
+    await win.__TAURI_INTERNALS__.invoke('confirm_install_bundled');
+
+    // check_addon_dependencies / check_orphaned_dependencies
+    await win.__TAURI_INTERNALS__.invoke('check_addon_dependencies');
+
+    // export_addon_list
+    await win.__TAURI_INTERNALS__.invoke('export_addon_list');
+
+    // validate_import_string
+    await win.__TAURI_INTERNALS__.invoke('validate_import_string', { importStr: 'valid' });
+    try {
+      await win.__TAURI_INTERNALS__.invoke('validate_import_string', { importStr: 'invalid' });
+    } catch (e) {
+      // expected
+    }
+
+    // default case
+    await win.__TAURI_INTERNALS__.invoke('unknown_cmd');
+  });
 });

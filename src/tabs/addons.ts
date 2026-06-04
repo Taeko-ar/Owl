@@ -303,6 +303,10 @@ export async function loadAddonsAndPatches() {
 let profilesInitialized = false;
 let activeModalAction: 'save' | null = null;
 
+export function resetProfilesInitializedForTesting() {
+  profilesInitialized = false;
+}
+
 export function setupAddonProfileEvents() {
   if (profilesInitialized) return;
   profilesInitialized = true;

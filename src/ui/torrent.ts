@@ -550,8 +550,6 @@ export function setupTorrentEvents(reloadCallback: () => Promise<void>) {
               playBtn.disabled = true;
               playBtn.className =
                 'rounded bg-sky-600/50 px-6 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed';
-            } else {
-              checkGamePathValidity();
             }
           }
         }

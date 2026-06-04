@@ -25,6 +25,18 @@ describe('Prefs & State', () => {
     expect(Prefs.getTheme()).toBe('light');
     Prefs.setTheme('dark');
     expect(Prefs.getTheme()).toBe('dark');
+
+    // Lang
+    Prefs.setLang('es');
+    expect(Prefs.getLang()).toBe('es');
+    Prefs.setLang('en');
+    expect(Prefs.getLang()).toBe('en');
+
+    // Skipped Version
+    Prefs.setSkippedVersion('1.2.0');
+    expect(Prefs.getSkippedVersion()).toBe('1.2.0');
+    Prefs.setSkippedVersion(null);
+    expect(Prefs.getSkippedVersion()).toBeNull();
   });
 
   it('exercises State getters and setters', () => {

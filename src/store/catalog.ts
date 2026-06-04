@@ -12,14 +12,48 @@ import {
   getCurrentDetailVersions,
   setCurrentDetailVersions,
   getDetectedGameVersion,
+  getInstalledAddonsMeta,
 } from '../state';
 import { fetchGithubReleases, getReleaseTypeName } from './github';
 import { updateFooterState } from './index';
 import { selectAddonForDownload } from './download';
 
+export function isAddonInstalled(addon: CatalogAddon): boolean {
+  const installedList = getInstalledAddonsMeta() || [];
+  return installedList.some((installed) => {
+    if (getCurrentActiveSite() === 'github') {
+      if (installed.gitUrl && addon.sourceUrl) {
+        const installedRepo = installed.gitUrl
+          .toLowerCase()
+          .replace('.git', '')
+          .split('github.com/')[1];
+        const addonRepo = addon.name.toLowerCase();
+        if (installedRepo === addonRepo) return true;
+      }
+    } else {
+      if (installed.modId && addon.modId && installed.modId === addon.modId) {
+        return true;
+      }
+    }
+    return (
+      installed.name.toLowerCase() === addon.title.toLowerCase() ||
+      installed.name.toLowerCase() === addon.name.toLowerCase()
+    );
+  });
+}
+
 export function updateDetailsSelectionButton() {
   const selectBtn = document.getElementById('detailSelectBtn') as HTMLButtonElement | null;
   if (!selectBtn || !getSelectedDetailAddon() || !getSelectedDetailAddonKey()) return;
+
+  const addon = getSelectedDetailAddon();
+  if (addon && isAddonInstalled(addon)) {
+    selectBtn.disabled = true;
+    selectBtn.textContent = getTranslation('store.installed');
+    selectBtn.className =
+      'flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded transition-all duration-150 bg-slate-800/50 border border-slate-700/50 text-slate-500 cursor-not-allowed opacity-50';
+    return;
+  }
 
   const isChecked = selectedAddons.has(getSelectedDetailAddonKey());
 
@@ -103,7 +137,7 @@ export async function loadAddonDetails(addon: CatalogAddon, key: string) {
         .map((file) => {
           const dlUrl =
             file.downloadUrl ||
-            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName || '')}`;
+            `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName!)}`;
           return {
             id: file.id,
             displayName: file.displayName || file.fileName || 'Unknown Version',
@@ -222,6 +256,8 @@ export async function loadAddonDetails(addon: CatalogAddon, key: string) {
         }
       }
     });
+
+    updateDetailsSelectionButton();
   } catch (err) {
     console.error('loadAddonDetails error:', err);
     detailsContent.innerHTML = `<div class="text-center text-red-400 py-12 text-xs">Failed to load details: ${err}</div>`;
@@ -266,6 +302,7 @@ export function renderStoreCatalog(
           ? `cf-${addon.modId}`
           : `mock-${index}-${addon.name.replace(/\s+/g, '')}`;
     const isChecked = selectedAddons.has(key);
+    const isInstalled = isAddonInstalled(addon);
     const isSelectedDetails =
       getSelectedDetailAddon() &&
       getSelectedDetailAddon()?.modId === addon.modId &&
@@ -279,11 +316,11 @@ export function renderStoreCatalog(
 
     card.innerHTML = `
       <div class="flex items-center justify-center p-1 flex-shrink-0 mr-2 mt-0.5" onclick="event.stopPropagation();">
-        <input type="checkbox" class="store-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-key="${key}" ${isChecked ? 'checked' : ''} />
+        <input type="checkbox" class="store-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-key="${key}" ${isChecked ? 'checked' : ''} ${isInstalled ? 'disabled' : ''} />
       </div>
       <img src="${addon.logoUrl || placeholderSvg}" class="w-8 h-8 rounded border border-slate-800 mr-2.5 flex-shrink-0 object-cover" onerror="this.src='${placeholderSvg}'" />
       <div class="flex-1 min-w-0 pr-2">
-        <h4 class="text-xs font-bold text-slate-200 truncate">${escapeHtml(addon.title)}</h4>
+        <h4 class="text-xs font-bold text-slate-200 truncate">${escapeHtml(addon.title)}${isInstalled ? `<span class="bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase tracking-wider ml-1.5">Installed</span>` : ''}</h4>
         <p class="text-[11px] text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(addon.description)}</p>
       </div>
     `;

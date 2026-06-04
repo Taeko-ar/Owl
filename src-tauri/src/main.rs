@@ -86,6 +86,7 @@ fn main() {
             commands::addons::change_addon_branch,
             commands::addons::export_addon_list,
             commands::addons::validate_import_string,
+            commands::addons::get_installed_addons_source_meta,
             commands::store::search_curseforge_addons,
             commands::store::get_curseforge_mod_files,
             commands::store::get_curseforge_mod_description,

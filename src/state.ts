@@ -1,4 +1,4 @@
-import { AddonGitStatus, CatalogAddon, AddonVersion, StoreSite } from './types';
+import { AddonGitStatus, CatalogAddon, AddonVersion, StoreSite, InstalledAddonSourceMeta } from './types';
 
 export const gitStatusCache = new Map<string, AddonGitStatus | null>();
 export const selectedAddons = new Map<
@@ -63,3 +63,12 @@ export function getDetectedGameVersion() {
 export function setDetectedGameVersion(v: string) {
   detectedGameVersion = v;
 }
+
+let installedAddonsMeta: InstalledAddonSourceMeta[] = [];
+export function getInstalledAddonsMeta() {
+  return installedAddonsMeta;
+}
+export function setInstalledAddonsMeta(v: InstalledAddonSourceMeta[]) {
+  installedAddonsMeta = v;
+}
+

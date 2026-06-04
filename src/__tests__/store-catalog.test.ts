@@ -4,6 +4,7 @@ import {
   loadAddonDetails,
   clearDetailsPane,
   renderStoreCatalog,
+  isAddonInstalled,
 } from '../store/catalog';
 import {
   selectedAddons,
@@ -12,6 +13,7 @@ import {
   setCurrentDetailVersions,
   setCurrentActiveSite,
   setDetectedGameVersion,
+  setInstalledAddonsMeta,
 } from '../state';
 import { invoke } from '@tauri-apps/api/core';
 import { getTranslation } from '../i18n';
@@ -765,6 +767,116 @@ describe('Store Catalog Module', () => {
     setSelectedDetailAddon({ modId: 999, name: 'OtherName' } as any);
     renderStoreCatalog([mockGithubAddon], 'github');
 
+    // fallback when fileName is missing in downloadUrl logic
+    document.body.innerHTML = `
+      <div id="storeListContainer"></div>
+      <div id="storeListEmpty" class="hidden">No Addons</div>
+      <div id="storeDetailsContent"></div>
+    `;
+    setCurrentActiveSite('curseforge');
+    setDetectedGameVersion('1.12.1');
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_curseforge_mod_files') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 50505,
+              downloadUrl: '',
+              fileName: 'file.zip',
+              gameVersions: ['1.12.1'],
+            },
+          ],
+        });
+      }
+      if (cmd === 'get_curseforge_mod_description') {
+        return Promise.resolve('Desc');
+      }
+      return Promise.resolve();
+    });
+    await loadAddonDetails(mockCFAddon, 'cf-303');
+    const select3 = document.getElementById('detailVersionSelect') as HTMLSelectElement;
+    expect(select3.value).toContain('https://edge.forgecdn.net/files/50/505/file.zip');
+
     vi.unstubAllGlobals();
+  });
+
+  it('isAddonInstalled correctly matches installed addons for curseforge and github', () => {
+    // 1. CurseForge match by modId
+    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 101, gitUrl: '' }]);
+    setCurrentActiveSite('curseforge');
+    expect(isAddonInstalled({ modId: 101, title: 'Questie', name: 'Questie' } as any)).toBe(true);
+
+    // 2. GitHub match by gitUrl
+    setInstalledAddonsMeta([{ name: 'QuestieRepo', folderName: 'Questie', modId: 0, gitUrl: 'https://github.com/Questie/QuestieRepo.git' }]);
+    setCurrentActiveSite('github');
+    expect(isAddonInstalled({ modId: 0, title: 'QuestieRepo', name: 'Questie/QuestieRepo' } as any)).toBe(true);
+
+    // 3. Fallback name match
+    setInstalledAddonsMeta([{ name: 'QuestieTitle', folderName: 'Questie', modId: 0, gitUrl: '' }]);
+    setCurrentActiveSite('curseforge');
+    expect(isAddonInstalled({ modId: 999, title: 'QuestieTitle', name: 'Questie' } as any)).toBe(true);
+  });
+
+  it('renderStoreCatalog disables checkbox and renders Installed badge for installed addons', () => {
+    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 101, gitUrl: '' }]);
+    setCurrentActiveSite('curseforge');
+
+    const addons: any[] = [
+      {
+        modId: 101,
+        title: 'Questie',
+        name: 'Questie',
+        description: 'Quest helper',
+        logoUrl: '',
+      },
+    ];
+
+    renderStoreCatalog(addons, 'curseforge');
+
+    const card = document.querySelector('.store-addon-card') as HTMLDivElement;
+    expect(card).not.toBeNull();
+    expect(card.innerHTML).toContain('Questie');
+    expect(card.innerHTML).toContain('Installed');
+    
+    const cb = card.querySelector('.store-addon-checkbox') as HTMLInputElement;
+    expect(cb.disabled).toBe(true);
+  });
+
+  it('loadAddonDetails disables selection button and shows Installed for installed addons', async () => {
+    setInstalledAddonsMeta([{ name: 'Questie', folderName: 'Questie', modId: 202, gitUrl: '' }]);
+    setCurrentActiveSite('curseforge');
+
+    const mockAddon: any = {
+      modId: 202,
+      title: 'Questie',
+      name: 'Questie',
+      description: 'Helper',
+    };
+
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_curseforge_mod_files') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 20201,
+              displayName: 'v1.0',
+              fileName: 'file.zip',
+              downloadUrl: 'http://dl.com/file.zip',
+              gameVersions: ['3.3.5a'],
+            },
+          ],
+        });
+      }
+      if (cmd === 'get_curseforge_mod_description') {
+        return Promise.resolve('<p>Description</p>');
+      }
+      return Promise.resolve();
+    });
+
+    await loadAddonDetails(mockAddon, 'cf-202');
+
+    const selectBtn = document.getElementById('detailSelectBtn') as HTMLButtonElement;
+    expect(selectBtn.disabled).toBe(true);
+    expect(selectBtn.textContent?.trim()).toBe('Installed');
   });
 });

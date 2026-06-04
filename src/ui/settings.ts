@@ -250,14 +250,14 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
     }
   });
 
-  confirmUpdateBtn?.addEventListener('click', async () => {
+  confirmUpdateBtn?.addEventListener('click', () => {
     updateDetailsModal?.classList.add('hidden');
-    if (statusFooter) statusFooter.textContent = 'Updating...';
-    try {
-      await invoke('install_update');
-    } catch (err) {
-      if (statusFooter) statusFooter.textContent = `Update error: ${err}`;
-    }
+    const footer = document.getElementById('status');
+    if (footer) footer.textContent = 'Updating...';
+    invoke('install_update').catch((err) => {
+      const footerErr = document.getElementById('status');
+      if (footerErr) footerErr.textContent = `Update error: ${err}`;
+    });
   });
 
   checkLauncherUpdates(false);

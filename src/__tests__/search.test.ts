@@ -172,5 +172,11 @@ describe('Search UI Events', () => {
     // Trigger blur when container matches :hover (should not hide)
     container.matches = vi.fn().mockReturnValue(true);
     inputHover.dispatchEvent(new Event('blur'));
+
+    // 6. setupSearchHoverBehavior when input is disabled
+    inputHover.classList.remove('active');
+    inputHover.disabled = true;
+    container.dispatchEvent(new Event('mouseenter'));
+    expect(inputHover.classList.contains('active')).toBe(false);
   });
 });

@@ -4,6 +4,8 @@ import {
   setupSettingsEvents,
   loadSavedSettings,
   saveSettings,
+  checkLauncherUpdates,
+  wireUpdateLabelClick,
 } from '../ui/settings';
 import { invoke } from '@tauri-apps/api/core';
 import { getSettingsBackup, setSettingsBackup } from '../state';
@@ -306,5 +308,184 @@ describe('Settings UI Module', () => {
     `;
     await saveSettings();
     expect(invoke).toHaveBeenCalledWith('save_settings', expect.any(Object));
+  });
+
+  it('covers updater logic, markdown rendering, and modal action events', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <div id="settingsModal" class="hidden">
+        <button id="settingsBtn"></button>
+      </div>
+      <div id="settingsUpdateContainer">
+        <span id="settingsUpdateLabel">Check updates...</span>
+      </div>
+      <div id="settingsBadge" class="hidden"></div>
+      <div id="settingsUpdateVersion"></div>
+      <input id="gamePath" value="/original" />
+      <input type="checkbox" id="stayOpen" checked />
+      <div id="status"></div>
+
+      <!-- Update Details Modal elements -->
+      <div id="updateDetailsModal" class="hidden">
+        <div id="updateModalTitle"></div>
+        <div id="updateChangelogContent"></div>
+        <button id="skipVersionBtn"></button>
+        <button id="closeUpdateDetails"></button>
+        <button id="confirmUpdateBtn"></button>
+      </div>
+    `;
+
+    setupSettingsEvents(async () => {});
+
+    // 1. checkLauncherUpdates manual check with update available
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'check_update_details') {
+        return Promise.resolve({
+          version: '1.5.0',
+          body: '# Release 1.5.0\n## Features\n- Cool stuff\n### Detail\n* Bullet item\n- Bullet item 2\n\nEmpty line check',
+        });
+      }
+      if (cmd === 'get_app_version') return Promise.resolve('1.0.0');
+      return Promise.resolve();
+    });
+
+    await checkLauncherUpdates(true);
+    const label = document.getElementById('settingsUpdateLabel') as HTMLElement;
+    expect(label.textContent).toBe('Update available!');
+
+    // 2. Click update label to trigger showUpdateDetails and test markdown rendering
+    label.click();
+    const updateModal = document.getElementById('updateDetailsModal');
+    expect(updateModal?.classList.contains('hidden')).toBe(false);
+    const changelog = document.getElementById('updateChangelogContent');
+    expect(changelog?.innerHTML).toContain('Release 1.5.0');
+    expect(changelog?.innerHTML).toContain('Bullet item');
+
+    // 3. Click skipVersionBtn to skip
+    const skipBtn = document.getElementById('skipVersionBtn') as HTMLElement;
+    skipBtn.click();
+    expect(updateModal?.classList.contains('hidden')).toBe(true);
+
+    // 4. checkLauncherUpdates auto check (should match skipped version and not show update label)
+    await checkLauncherUpdates(false);
+    expect(document.getElementById('settingsBadge')?.classList.contains('hidden')).toBe(true);
+
+    // 5. checkLauncherUpdates manual check (no updates available)
+    (invoke as any).mockResolvedValueOnce(null);
+    await checkLauncherUpdates(true);
+    expect(document.getElementById('settingsUpdateContainer')?.innerHTML).toContain('Launcher is up-to-date');
+    // Run timeouts to restore label
+    vi.runAllTimers();
+    expect(document.getElementById('settingsUpdateLabel')).not.toBeNull();
+
+    // Cover wireUpdateLabelClick when cachedUpdate is null
+    wireUpdateLabelClick();
+    const labelNull = document.getElementById('settingsUpdateLabel') as HTMLElement;
+    (invoke as any).mockResolvedValueOnce(null);
+    labelNull.click();
+    await Promise.resolve();
+
+    // 6. checkLauncherUpdates manual check fails
+    (invoke as any).mockRejectedValueOnce('Update API Down');
+    await checkLauncherUpdates(true);
+    expect(document.getElementById('settingsUpdateContainer')?.innerHTML).toContain('Check failed');
+    vi.runAllTimers();
+    expect(document.getElementById('settingsUpdateLabel')).not.toBeNull();
+
+    // 7. Test backdrop clicks on updateDetailsModal
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'check_update_details') {
+        return Promise.resolve({
+          version: '1.5.0',
+          body: '# Release 1.5.0',
+        });
+      }
+      if (cmd === 'get_app_version') return Promise.resolve('1.0.0');
+      return Promise.resolve();
+    });
+    await checkLauncherUpdates(true);
+    const label2 = document.getElementById('settingsUpdateLabel') as HTMLElement;
+    label2.click();
+    expect(updateModal?.classList.contains('hidden')).toBe(false);
+    updateModal?.click(); // backdrop click
+    expect(updateModal?.classList.contains('hidden')).toBe(true);
+
+    // 8. Test closeUpdateDetails click
+    label2.click();
+    expect(updateModal?.classList.contains('hidden')).toBe(false);
+    document.getElementById('closeUpdateDetails')?.click();
+    expect(updateModal?.classList.contains('hidden')).toBe(true);
+
+    // 9. Test confirmUpdateBtn click (success path)
+    label2.click();
+    (invoke as any).mockResolvedValueOnce(null);
+    document.getElementById('confirmUpdateBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.getElementById('status')?.textContent).toBe('Updating...');
+
+    // 10. Test confirmUpdateBtn click (fail path)
+    label2.click();
+    (invoke as any).mockRejectedValueOnce('Install error');
+    document.getElementById('confirmUpdateBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.getElementById('status')?.textContent).toContain('Update error');
+
+    // 11. Trigger get_app_version resolution on settingsBtn click
+    const settingsBtn = document.getElementById('settingsBtn') as HTMLElement;
+    settingsBtn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.getElementById('settingsUpdateVersion')?.textContent).toBe('v1.0.0');
+
+    // 12. Trigger get_app_version catch path on settingsBtn click
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_app_version') return Promise.reject('App version error');
+      return Promise.resolve();
+    });
+    settingsBtn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // 13. checkLauncherUpdates when settingsBadge is null
+    const settingsBadge = document.getElementById('settingsBadge');
+    if (settingsBadge) settingsBadge.remove();
+
+    (invoke as any).mockResolvedValueOnce({ version: '1.6.0', body: 'New version' });
+    await checkLauncherUpdates(true);
+
+    // checkLauncherUpdates with null update when settingsBadge is null
+    (invoke as any).mockResolvedValueOnce(null);
+    await checkLauncherUpdates(true);
+
+    // checkLauncherUpdates error path when settingsBadge is null
+    (invoke as any).mockRejectedValueOnce('Error');
+    await checkLauncherUpdates(true);
+
+    // 14. skipVersionBtn when cachedUpdate is null
+    (invoke as any).mockResolvedValueOnce(null);
+    await checkLauncherUpdates(true);
+
+    const badge2 = document.getElementById('settingsBadge');
+    if (badge2) badge2.remove();
+    const updateContainer3 = document.getElementById('settingsUpdateContainer');
+    if (updateContainer3) updateContainer3.remove();
+
+    document.getElementById('skipVersionBtn')?.click();
+
+    // 15. confirmUpdateBtn click when statusFooter is null
+    const statusFooter = document.getElementById('status');
+    if (statusFooter) statusFooter.remove();
+
+    (invoke as any).mockResolvedValueOnce(undefined);
+    document.getElementById('confirmUpdateBtn')?.click();
+    await Promise.resolve();
+
+    (invoke as any).mockRejectedValueOnce('Err');
+    document.getElementById('confirmUpdateBtn')?.click();
+    await Promise.resolve();
+
+    vi.useRealTimers();
   });
 });

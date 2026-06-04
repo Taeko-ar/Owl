@@ -8,6 +8,15 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock('../ui/import', () => ({
+  showBundledWarningModal: vi.fn().mockImplementation(async (gamePath, tempPath, names, callback) => {
+    if (callback) await callback();
+    return true;
+  }),
+  parseAndTranslateImportError: vi.fn().mockImplementation((e) => e),
+  handlePostInstallDependencyCheck: vi.fn().mockImplementation(() => Promise.resolve()),
+}));
+
 describe('Store Download Module', () => {
   beforeEach(() => {
     document.body.innerHTML = `
@@ -352,5 +361,85 @@ describe('Store Download Module', () => {
     });
     vi.mocked(invoke).mockRejectedValue('Download error');
     await installSelectedAddons();
+
+    // 5. installSelectedAddons: storeReviewBtn present, BUNDLED error handled (confirm path), modal transitions covered
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <input id="gamePath" value="C:\\wow" />
+      <div id="status">Ready</div>
+      <div id="activityProgress" style="width: 0%;"></div>
+      <button id="store-modal-confirm"></button>
+      <button id="store-modal-cancel"></button>
+      <button id="storeReviewBtn">Review</button>
+      <div id="storeDownloadModal"></div>
+      <div id="storeModal"></div>
+      <input type="checkbox" class="confirm-addon-checkbox" data-key="cf-101" checked />
+      <table>
+        <tr data-key="cf-101">
+          <td class="store-status-cell"></td>
+        </tr>
+      </table>
+    `;
+    const importModule = await import('../ui/import');
+    vi.mocked(importModule.showBundledWarningModal).mockImplementation(async (gamePath, tempPath, names, callback) => {
+      if (callback) await callback();
+      return true;
+    }); // user confirms
+    vi.mocked(invoke).mockRejectedValue('BUNDLED:temp|A1,A2');
+
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+
+    await installSelectedAddons();
+    // Verify storeReviewBtn disabled state and text
+    const reviewBtn = document.getElementById('storeReviewBtn') as HTMLButtonElement;
+    expect(reviewBtn.disabled).toBe(true);
+    expect(reviewBtn.textContent).toBe('Downloading...');
+
+    // Run timers for the post-download fadeout transition
+    vi.runAllTimers();
+    expect(importModule.showBundledWarningModal).toHaveBeenCalledWith(
+      'C:\\wow',
+      'temp',
+      ['A1', 'A2'],
+      expect.any(Function)
+    );
+    expect(reviewBtn.disabled).toBe(false);
+    expect(reviewBtn.textContent).toBe('Review');
+
+    // 6a. installSelectedAddons: BUNDLED error (cancel path + status cell present)
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showBundledWarningModal).mockResolvedValue(false); // user cancels
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 6b. installSelectedAddons: BUNDLED error (cancel path + missing status cell + empty review button text)
+    document.querySelector('table')?.remove(); // remove status cell
+    if (reviewBtn) reviewBtn.textContent = ''; // empty textContent to cover line 133
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    // 7. BUNDLED error (confirm path + missing status cell)
+    selectedAddons.set('cf-101', {
+      addon: mockAddon,
+      selectedVersion: { id: 10101, downloadUrl: 'url' } as unknown as AddonVersion,
+    });
+    vi.mocked(importModule.showBundledWarningModal).mockImplementation(async (gamePath, tempPath, names, callback) => {
+      if (callback) await callback();
+      return true;
+    });
+    await installSelectedAddons();
+    vi.runAllTimers();
+
+    vi.useRealTimers();
   });
 });

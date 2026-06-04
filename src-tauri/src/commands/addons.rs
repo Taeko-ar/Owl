@@ -486,3 +486,62 @@ pub fn validate_import_string(import_str: String) -> std::result::Result<ExportP
     }
     Ok(payload)
 }
+
+#[tauri::command]
+pub fn get_installed_addons_source_meta(base_path: String) -> std::result::Result<Vec<InstalledAddonSourceMeta>, String> {
+    let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
+    if !addons_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut list = Vec::new();
+    if let Ok(entries) = fs::read_dir(&addons_dir) {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let folder_name = entry.file_name().to_string_lossy().to_string();
+            if folder_name.starts_with("Blizzard_") {
+                continue;
+            }
+            let base_name = if folder_name.ends_with("-disabled") {
+                folder_name.trim_end_matches("-disabled").to_string()
+            } else {
+                folder_name.clone()
+            };
+
+            let mut git_url = None;
+            let mut mod_id = None;
+
+            let owl_meta_path = path.join(".owl-meta.json");
+            let git_dir = path.join(".git");
+            let cf_meta_path = path.join(".curseforge-meta.json");
+
+            if owl_meta_path.exists() {
+                if let Ok(content) = fs::read_to_string(&owl_meta_path) {
+                    if let Ok(meta) = serde_json::from_str::<OwlAddonMeta>(&content) {
+                        git_url = Some(meta.remote_url);
+                    }
+                }
+            } else if git_dir.exists() {
+                if let Ok(remote) = run_git_command(&path, &["remote", "get-url", "origin"]) {
+                    git_url = Some(remote);
+                }
+            } else if cf_meta_path.exists() {
+                if let Ok(content) = fs::read_to_string(&cf_meta_path) {
+                    if let Ok(meta) = serde_json::from_str::<CurseForgeMeta>(&content) {
+                        mod_id = Some(meta.mod_id);
+                    }
+                }
+            }
+
+            list.push(InstalledAddonSourceMeta {
+                name: base_name,
+                mod_id,
+                git_url,
+            });
+        }
+    }
+    Ok(list)
+}
+

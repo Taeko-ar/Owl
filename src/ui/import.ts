@@ -73,14 +73,11 @@ export function setupImportModalEvents() {
       if (!repoUrl) return;
       try {
         if (statusFooter) statusFooter.textContent = getTranslation('status.importing');
-        let res = '';
         if (gamePath) {
-          res = await invoke<string>('import_addon', { basePath: gamePath.value, repoUrl });
-        }
-        await loadAddonsAndPatches();
-        if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
-        showToast(getTranslation('toast.imported'));
-        if (gamePath) {
+          const res = await invoke<string>('import_addon', { basePath: gamePath.value, repoUrl });
+          await loadAddonsAndPatches();
+          if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
+          showToast(getTranslation('toast.imported'));
           await handlePostInstallDependencyCheck(gamePath.value, res);
         }
       } catch (err) {
@@ -97,14 +94,11 @@ export function setupImportModalEvents() {
         if (!filePaths || filePaths.length === 0) return;
 
         if (statusFooter) statusFooter.textContent = getTranslation('status.importingFiles');
-        let res = '';
         if (gamePath) {
-          res = await invoke<string>('import_addon_files', { basePath: gamePath.value, filePaths });
-        }
-        await loadAddonsAndPatches();
-        if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
-        showToast(getTranslation('toast.imported'));
-        if (gamePath) {
+          const res = await invoke<string>('import_addon_files', { basePath: gamePath.value, filePaths });
+          await loadAddonsAndPatches();
+          if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
+          showToast(getTranslation('toast.imported'));
           await handlePostInstallDependencyCheck(gamePath.value, res);
         }
       } catch (err) {
@@ -114,10 +108,32 @@ export function setupImportModalEvents() {
           const parts = errStr.substring(8).split('|');
           const tempPath = parts[0];
           const names = parts[1].split(',');
-          if (gamePath) {
-            showBundledWarningModal(gamePath.value, tempPath, names, async () => {
+          showBundledWarningModal(gamePath!.value, tempPath, names, async () => {
+            await loadAddonsAndPatches();
+          });
+        } else if (errStr.startsWith('REPLACE_WARNING:')) {
+          if (statusFooter) statusFooter.textContent = 'Conflicting addon files detected.';
+          const parts = errStr.substring(16).split('|');
+          const tempPath = parts[0];
+          const names = parts[1].split(',');
+          const proceed = await showReplaceWarningModal(tempPath, names);
+          if (proceed && gamePath) {
+            try {
+              if (statusFooter) statusFooter.textContent = 'Overwriting conflicting addons...';
+              const res = await invoke<string>('confirm_install_bundled', {
+                basePath: gamePath.value,
+                tempDirPath: tempPath,
+                allowedDirs: null,
+              });
               await loadAddonsAndPatches();
-            });
+              if (statusFooter) statusFooter.textContent = getTranslation('status.imported');
+              showToast(getTranslation('toast.imported'));
+              await handlePostInstallDependencyCheck(gamePath.value, res);
+            } catch (confirmErr) {
+              if (statusFooter) statusFooter.textContent = `Error: ${confirmErr}`;
+            }
+          } else {
+            if (statusFooter) statusFooter.textContent = 'Import cancelled.';
           }
         } else {
           const cleanErr = parseAndTranslateImportError(errStr);
@@ -297,12 +313,10 @@ export async function handlePostInstallDependencyCheck(basePath: string, success
   let names: string[] = [];
   if (successMessage.includes(':')) {
     const parts = successMessage.split(':');
-    if (parts.length > 1) {
-      names = parts[1]
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
+    names = parts[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
   } else if (successMessage.includes('Imported addon ')) {
     const name = successMessage.replace('Imported addon ', '').split(' ')[0].trim();
     if (name) names.push(name);
@@ -329,3 +343,40 @@ export async function handlePostInstallDependencyCheck(basePath: string, success
     await showDependencyModal(basePath, Array.from(allMissing));
   }
 }
+
+export function showReplaceWarningModal(
+  tempPath: string,
+  conflictingNames: string[]
+): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const modal = document.getElementById('replaceWarningModal') as HTMLElement;
+    const list = document.getElementById('replaceWarningList') as HTMLElement;
+    const confirmBtn = document.getElementById('replaceWarningConfirmBtn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('replaceWarningCancelBtn') as HTMLButtonElement;
+
+    list.innerHTML = conflictingNames
+      .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+      .join('');
+    modal.classList.remove('hidden');
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      const newCancelBtn = cancelBtn.cloneNode(true);
+      confirmBtn.parentNode?.replaceChild(newConfirmBtn, confirmBtn);
+      cancelBtn.parentNode?.replaceChild(newCancelBtn, cancelBtn);
+    };
+
+    document.getElementById('replaceWarningConfirmBtn')?.addEventListener('click', () => {
+      cleanup();
+      resolve(true);
+    });
+
+    document.getElementById('replaceWarningCancelBtn')?.addEventListener('click', async () => {
+      cleanup();
+      await invoke('cleanup_temp_archive', { tempDirPath: tempPath });
+      resolve(false);
+    });
+  });
+}
+

@@ -98,6 +98,18 @@ export const TAURI_MOCK_SCRIPT = `
       case 'get_addons':
         return window.__OWL_MOCK_ADDONS__ || [];
 
+      case 'get_installed_addons_source_meta': {
+        const addons = window.__OWL_MOCK_ADDONS__ || [];
+        return addons.map(name => {
+          const baseName = name.replace(/-disabled$/, '');
+          return {
+            name: baseName,
+            modId: baseName === 'Questie' ? 10001 : undefined,
+            gitUrl: baseName === 'SomeAddon' ? 'https://github.com/author/SomeAddon' : undefined
+          };
+        });
+      }
+
       case 'get_patches':
         return window.__OWL_MOCK_PATCHES__ || [];
 

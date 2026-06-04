@@ -87,3 +87,12 @@ pub struct CurseForgeMeta {
     #[serde(rename = "fileId")]
     pub file_id: i32,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledAddonSourceMeta {
+    pub name: String,
+    pub mod_id: Option<i32>,
+    pub git_url: Option<String>,
+}
+

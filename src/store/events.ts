@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { escapeHtml } from '../utils';
-import { selectedAddons, setCurrentActiveSite, setDetectedGameVersion } from '../state';
+import { selectedAddons, setCurrentActiveSite, setDetectedGameVersion, setInstalledAddonsMeta } from '../state';
+import { InstalledAddonSourceMeta } from '../types';
 import { getReleaseTypeName } from './github';
 import { installSelectedAddons } from './download';
 import {
@@ -61,6 +62,16 @@ export function setupStoreEvents(reloadCallback: () => Promise<void>) {
     } catch (err) {
       console.error('Failed to detect game version:', err);
       setDetectedGameVersion('3.3.5a');
+    }
+
+    try {
+      const installedMeta = await invoke<InstalledAddonSourceMeta[]>('get_installed_addons_source_meta', {
+        basePath: gamePathInput().value,
+      });
+      setInstalledAddonsMeta(installedMeta);
+    } catch (err) {
+      console.error('Failed to get installed addons meta:', err);
+      setInstalledAddonsMeta([]);
     }
     renderGithubTagFilters();
     switchSiteTab('curseforge');

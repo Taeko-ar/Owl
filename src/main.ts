@@ -63,6 +63,17 @@ if (typeof window !== 'undefined' && !win.__TAURI_INTERNALS__) {
           return win.__OWL_MOCK_PROFILES__ || [];
         case 'get_addons':
           return win.__OWL_MOCK_ADDONS__ || [];
+        case 'get_installed_addons_source_meta': {
+          const addons = win.__OWL_MOCK_ADDONS__ || [];
+          return addons.map((name) => {
+            const baseName = name.replace(/-disabled$/, '');
+            return {
+              name: baseName,
+              modId: baseName === 'Questie' ? 10001 : undefined,
+              gitUrl: baseName === 'SomeAddon' ? 'https://github.com/author/SomeAddon' : undefined,
+            };
+          });
+        }
         case 'get_patches':
           return win.__OWL_MOCK_PATCHES__ || [];
         case 'validate_game_path':

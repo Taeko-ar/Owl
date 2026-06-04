@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { loadAddonsAndPatches } from '../tabs/addons';
+import { loadAddonsAndPatches, setupAddonProfileEvents, resetProfilesInitializedForTesting } from '../tabs/addons';
 import { invoke } from '@tauri-apps/api/core';
 import { showAddonModal } from '../ui/addon-modal';
 
@@ -18,6 +18,7 @@ vi.mock('../ui/addon-modal', () => ({
 describe('Addons & Patches Tabs UI', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetProfilesInitializedForTesting();
   });
 
   afterEach(() => {
@@ -559,5 +560,556 @@ describe('Addons & Patches Tabs UI', () => {
       confirmBtn?.click();
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
+
+    // Patch toggle success (when statusFooter is null)
+    (invoke as any).mockImplementation(() => Promise.resolve('Success'));
+    if (patchToggle) {
+      patchToggle.dispatchEvent(new Event('change'));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    // Patch delete success (when statusFooter is null)
+    if (patchDelBtn) {
+      patchDelBtn.click();
+      const confirmActions = patchDelBtn.parentElement?.nextElementSibling as HTMLElement;
+      const confirmBtn = confirmActions?.querySelector('.confirm-delete') as HTMLElement;
+      confirmBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    // Delete patch: parent is missing (btn parentElement is null)
+    const loadPatchesModule = await import('../tabs/patches');
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    const deleteBtn = document.querySelector('.delete-patch') as HTMLElement;
+    deleteBtn.remove();
+    deleteBtn.click();
+
+    // Delete patch: grandparent is missing (item is null)
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    const deleteBtn2 = document.querySelector('.delete-patch') as HTMLElement;
+    const dummyParent1 = document.createElement('div');
+    dummyParent1.appendChild(deleteBtn2);
+    deleteBtn2.click();
+
+    // Cancel delete: parent is missing (btn parentElement is null)
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    const cancelBtn = document.querySelector('.cancel-delete') as HTMLElement;
+    cancelBtn.remove();
+    cancelBtn.click();
+
+    // Cancel delete: grandparent is missing (item is null)
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    const cancelBtn2 = document.querySelector('.cancel-delete') as HTMLElement;
+    const dummyParent2 = document.createElement('div');
+    dummyParent2.appendChild(cancelBtn2);
+    cancelBtn2.click();
+
+    // Cancel delete: normal case (truthy branch)
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    (document.querySelector('.cancel-delete') as HTMLElement)?.click();
+
+    // Call loadPatches with empty array to cover 0-element list branches
+    await loadPatchesModule.loadPatches([], '/mock/wow', null);
+  });
+
+  it('covers delete_patch early exit when data-patch is missing', async () => {
+    // Setup simple patches HTML
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="patches-list">
+        <div class="flex flex-col confirm-actions">
+          <button class="confirm-delete">Yes</button>
+        </div>
+      </div>
+      <div id="patches-empty"></div>
+    `;
+    const loadPatchesModule = await import('../tabs/patches');
+    await loadPatchesModule.loadPatches(['patch-enUS-W.mpq'], '/mock/wow', document.getElementById('status'));
+
+    const confirmBtn = document.querySelector('.confirm-delete') as HTMLElement;
+    confirmBtn.removeAttribute('data-patch'); // strip it
+    confirmBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(invoke).not.toHaveBeenCalledWith('delete_patch', expect.any(Object));
+  });
+
+  it('covers profiles UI, dropdown interaction, rename, delete, and validation events', async () => {
+    document.body.innerHTML = `
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <div id="profileModal" class="hidden">
+        <div id="profileModalTitle"></div>
+        <input id="profileModalInput" />
+        <div id="profileModalError" class="hidden"></div>
+        <button id="cancelProfileModal"></button>
+        <button id="confirmProfileModal"></button>
+      </div>
+      <div id="activeProfileHeaderName"></div>
+      <div id="activeProfileHeaderContainer"></div>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="exportAddonsBtn"></button>
+    `;
+
+    setupAddonProfileEvents();
+
+    const selectorBtn = document.getElementById('profileSelectorBtn') as HTMLElement;
+    const dropdown = document.getElementById('profileDropdown') as HTMLElement;
+    const modal = document.getElementById('profileModal') as HTMLElement;
+
+    // Toggle dropdown on click
+    selectorBtn.click();
+    expect(dropdown.classList.contains('hidden')).toBe(false);
+
+    // Stop propagation inside dropdown click
+    dropdown.click();
+    expect(dropdown.classList.contains('hidden')).toBe(false);
+
+    // Close on body click
+    document.dispatchEvent(new Event('click'));
+    expect(dropdown.classList.contains('hidden')).toBe(true);
+
+    // Backdrop click on profileModal closes it
+    modal.classList.remove('hidden');
+    modal.click();
+    expect(modal.classList.contains('hidden')).toBe(true);
+
+    // Cancel button closes it
+    modal.classList.remove('hidden');
+    document.getElementById('cancelProfileModal')?.click();
+    expect(modal.classList.contains('hidden')).toBe(true);
+
+    // Trigger profile list rendering with an active profile and custom profiles
+    const mockSettings = {
+      activeProfile: 'My Profile',
+      addonProfiles: [
+        {
+          name: 'My Profile',
+          enabledAddons: ['MyAddon'],
+          tweakConfigs: { option1: 'val1' },
+          enabledPatches: ['patch-enUS-W.mpq'],
+        },
+      ],
+    };
+
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve(['patch-enUS-W.mpq']);
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      if (cmd === 'read_config') return Promise.resolve('option1=val1');
+      return Promise.resolve();
+    });
+
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Save Profile Modal validation flows
+    const saveBtn = document.getElementById('saveProfileBtn') as HTMLElement;
+    saveBtn.click();
+    expect(modal.classList.contains('hidden')).toBe(false);
+
+    const input = document.getElementById('profileModalInput') as HTMLInputElement;
+    const confirmBtn = document.getElementById('confirmProfileModal') as HTMLElement;
+    const errorMsg = document.getElementById('profileModalError') as HTMLElement;
+
+    // Empty validation
+    input.value = '';
+    confirmBtn.click();
+    expect(errorMsg.classList.contains('hidden')).toBe(false);
+    expect(errorMsg.textContent).not.toBe('');
+
+    // Long validation
+    input.value = 'a'.repeat(33);
+    confirmBtn.click();
+    expect(errorMsg.classList.contains('hidden')).toBe(false);
+
+    // Duplicate name validation
+    input.value = 'My Profile';
+    confirmBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(errorMsg.classList.contains('hidden')).toBe(false);
+
+    // Success save path
+    input.value = 'New Profile';
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve(['patch-enUS-W.mpq']);
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      if (cmd === 'save_addon_profile') return Promise.resolve();
+      return Promise.resolve();
+    });
+    confirmBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(modal.classList.contains('hidden')).toBe(true);
+
+    // Save Profile Input keydown Enter key triggers confirm
+    saveBtn.click();
+    input.value = 'Another New Profile';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(modal.classList.contains('hidden')).toBe(true);
+
+    // Update profile list DOM elements and trigger actions (Apply, Rename, Delete)
+    await loadAddonsAndPatches();
+
+    const row = document.querySelector('.profile-item-row[data-profile="My Profile"]') as HTMLElement;
+    expect(row).not.toBeNull();
+
+    // Click profile name to Apply
+    const applyLabel = row.querySelector('.profile-option-name') as HTMLElement;
+    (invoke as any).mockResolvedValueOnce(null); // apply_addon_profile
+    applyLabel.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(invoke).toHaveBeenCalledWith('apply_addon_profile', { basePath: '/mock/wow', name: 'My Profile' });
+
+    // Click rename button to show edit view
+    const renameBtn = row.querySelector('.rename-profile-btn') as HTMLElement;
+    renameBtn.click();
+    const editView = row.querySelector('.profile-edit-view') as HTMLElement;
+    expect(editView.classList.contains('hidden')).toBe(false);
+
+    // Cancel rename
+    const cancelRename = row.querySelector('.cancel-rename-btn') as HTMLElement;
+    cancelRename.click();
+    expect(editView.classList.contains('hidden')).toBe(true);
+
+    // Confirm rename empty validation
+    renameBtn.click();
+    const editInput = row.querySelector('.profile-edit-input') as HTMLInputElement;
+    editInput.value = '';
+    const confirmRename = row.querySelector('.confirm-rename-btn') as HTMLElement;
+    confirmRename.click();
+
+    // Confirm rename too long validation
+    editInput.value = 'a'.repeat(33);
+    confirmRename.click();
+
+    // Confirm rename duplicate validation
+    editInput.value = 'My Profile'; // duplicate of self is ok, but let's test duplicate of another
+    const mockSettingsWithTwo = {
+      activeProfile: 'My Profile',
+      addonProfiles: [
+        { name: 'My Profile', enabledAddons: [] },
+        { name: 'Other Profile', enabledAddons: [] },
+      ],
+    };
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve(mockSettingsWithTwo);
+      return Promise.resolve();
+    });
+    editInput.value = 'Other Profile';
+    confirmRename.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Confirm rename success
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'rename_addon_profile') return Promise.resolve();
+      return Promise.resolve();
+    });
+    editInput.value = 'Renamed Profile';
+    confirmRename.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Confirm rename keydown events (Enter, Escape, click)
+    renameBtn.click();
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // cancels
+    expect(editView.classList.contains('hidden')).toBe(true);
+
+    renameBtn.click();
+    editInput.click(); // stop propagation check
+    editInput.value = 'Keydown Renamed';
+    editInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); // confirms
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Delete profile interactions (Cancel, Confirm)
+    const deleteBtn = row.querySelector('.delete-profile-btn') as HTMLElement;
+    deleteBtn.click();
+    const deleteView = row.querySelector('.profile-delete-view') as HTMLElement;
+    expect(deleteView.classList.contains('hidden')).toBe(false);
+
+    // Cancel delete
+    const cancelDelete = row.querySelector('.cancel-delete-btn') as HTMLElement;
+    cancelDelete.click();
+    expect(deleteView.classList.contains('hidden')).toBe(true);
+
+    // Confirm delete
+    deleteBtn.click();
+    const confirmDelete = row.querySelector('.confirm-delete-btn') as HTMLElement;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'delete_addon_profile') return Promise.resolve();
+      if (cmd === 'load_settings') return Promise.resolve({ addonProfiles: [] });
+      return Promise.resolve();
+    });
+    confirmDelete.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Update active profile button
+    const modifiedSettings = {
+      activeProfile: 'My Profile',
+      addonProfiles: [
+        {
+          name: 'My Profile',
+          enabledAddons: ['DifferentAddon'], // mismatch to trigger modified
+        },
+      ],
+    };
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings') return Promise.resolve(modifiedSettings);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const updateProfileBtn = document.getElementById('updateProfileBtn') as HTMLElement;
+    expect(updateProfileBtn.classList.contains('hidden')).toBe(false);
+    updateProfileBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  it('covers setupAddonProfileEvents early exit when elements are missing', async () => {
+    document.body.innerHTML = '';
+    setupAddonProfileEvents();
+  });
+
+  it('covers mods tab activeTab state, profile setup error catch paths, empty profiles mapping, and comparison modifications', async () => {
+
+    // 1. activeTab === 'mods'
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <div class="nav-tab active" data-tab="mods"></div>
+    `;
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_patches') return Promise.resolve(['patch-enUS-W.mpq']);
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 3. profiles list empty flow, click save profile button
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden"></div>
+      <div id="profileModal" class="hidden">
+        <div id="profileModalTitle"></div>
+        <input id="profileModalInput" />
+        <div id="profileModalError" class="hidden"></div>
+        <button id="cancelProfileModal"></button>
+        <button id="confirmProfileModal"></button>
+      </div>
+      <button id="exportAddonsBtn"></button>
+    `;
+    // setup events
+    setupAddonProfileEvents();
+    // Render list (which calls updateProfileDropdown inside loadAddonsAndPatches)
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'get_patches') return Promise.resolve([]);
+      if (cmd === 'load_settings') return Promise.resolve({ addonProfiles: [] });
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Click saveProfileBtn
+    document.getElementById('saveProfileBtn')?.click();
+    expect(document.getElementById('profileModal')?.classList.contains('hidden')).toBe(false);
+
+    // Set input value to bypass empty check
+    const profileModalInput = document.getElementById('profileModalInput') as HTMLInputElement;
+    if (profileModalInput) profileModalInput.value = 'NewProfile';
+
+    // 4. save_addon_profile catches error
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve({ addonProfiles: [] });
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'save_addon_profile') return Promise.reject('Save profile fail');
+      return Promise.resolve();
+    });
+    document.getElementById('confirmProfileModal')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(document.getElementById('profileModalError')?.textContent).toBe('Save profile fail');
+
+    // 5. updateProfileBtn catches error & rename/delete profile catches error
+    const mockSettings = {
+      activeProfile: 'My Profile',
+      addonProfiles: [
+        {
+          name: 'My Profile',
+          enabledAddons: ['MyAddon'],
+          tweakConfigs: { opt: 'val' },
+          enabledPatches: ['patch-enUS-W.mpq'],
+        },
+      ],
+    };
+    document.body.innerHTML = `
+      <button id="profileSelectorBtn"></button>
+      <div id="profileDropdown" class="hidden">
+        <div id="profileList"></div>
+      </div>
+      <div id="profileModal" class="hidden">
+        <div id="profileModalTitle"></div>
+        <input id="profileModalInput" />
+        <div id="profileModalError" class="hidden"></div>
+        <button id="confirmProfileModal"></button>
+      </div>
+      <button id="updateProfileBtn" class="hidden"></button>
+      <div id="activeProfileHeaderName"></div>
+      <div id="activeProfileHeaderContainer"></div>
+      <div id="activeProfileHeaderNameMods"></div>
+      <div id="activeProfileHeaderContainerMods"></div>
+      <input id="gamePath" value="/mock/wow" />
+      <div id="status"></div>
+      <div id="activityProgress"></div>
+      <div id="addons-list"></div>
+      <div id="addons-empty"></div>
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+    `;
+    setupAddonProfileEvents();
+
+    // Tweaks comparison mismatch to cover tweak mismatch (line 440)
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve(['patch-enUS-W.mpq']);
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      if (cmd === 'read_config') return Promise.resolve('opt=val2');
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // trigger updateProfileBtn click failure
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'save_addon_profile') return Promise.reject('Update profile error');
+      return Promise.resolve();
+    });
+    document.getElementById('updateProfileBtn')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Remove statusFooter and click updateProfileBtn again to cover falsy branch of line 647
+    const statusFooter = document.getElementById('status');
+    if (statusFooter) statusFooter.remove();
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'get_addons') return Promise.resolve([]);
+      if (cmd === 'save_addon_profile') return Promise.reject('Update profile error');
+      return Promise.resolve();
+    });
+    document.getElementById('updateProfileBtn')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Recreate status footer for other tests
+    const status = document.createElement('div');
+    status.id = 'status';
+    document.body.appendChild(status);
+
+    // Patches comparison mismatch to cover patch mismatch (line 466)
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_addons') return Promise.resolve(['MyAddon']);
+      if (cmd === 'get_patches') return Promise.resolve(['patch-enUS-W.mpq', 'patch-enUS-Y.mpq']);
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'parse_toc') return Promise.resolve({ name: 'MyAddon', title: 'My Addon Title' });
+      if (cmd === 'read_config') return Promise.resolve('opt=val');
+      return Promise.resolve();
+    });
+    await loadAddonsAndPatches();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // click profile list name item to apply profile (fails)
+    (invoke as any).mockRejectedValueOnce('Apply profile error');
+    const profileItemName = document.querySelector('.profile-option-name') as HTMLElement;
+    profileItemName?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // click rename button and confirm rename (fails)
+    const renameBtn = document.querySelector('.rename-profile-btn') as HTMLElement;
+    const confirmRenameBtn = document.querySelector('.confirm-rename-btn') as HTMLElement;
+    const editInput = document.querySelector('.profile-edit-input') as HTMLInputElement;
+    renameBtn?.click();
+    if (editInput) editInput.value = 'Different Name';
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'load_settings') return Promise.resolve(mockSettings);
+      if (cmd === 'rename_addon_profile') return Promise.reject('Rename profile error');
+      return Promise.resolve();
+    });
+    confirmRenameBtn?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // click delete button and confirm delete (fails)
+    const deleteBtn = document.querySelector('.delete-profile-btn') as HTMLElement;
+    const confirmDeleteBtn = document.querySelector('.confirm-delete-btn') as HTMLElement;
+    deleteBtn?.click();
+    (invoke as any).mockRejectedValueOnce('Delete profile error');
+    confirmDeleteBtn?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  it('covers patches.ts statusFooter null branches', async () => {
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+      <div id="patches-list"></div>
+      <div id="patches-empty"></div>
+    `;
+
+    const loadPatchesModule = await import('../tabs/patches');
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+
+    const toggle = document.querySelector('.patch-toggle') as HTMLInputElement;
+    const deleteBtn = document.querySelector('.delete-patch') as HTMLElement;
+    const confirmActions = deleteBtn.parentElement?.nextElementSibling as HTMLElement;
+    const confirmBtn = confirmActions.querySelector('.confirm-delete') as HTMLElement;
+
+    // 1. Toggle patch success
+    (invoke as any).mockResolvedValueOnce('Success');
+    toggle.dispatchEvent(new Event('change'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 2. Toggle patch fail
+    (invoke as any).mockRejectedValueOnce('Error');
+    toggle.dispatchEvent(new Event('change'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 3. Delete patch success
+    (invoke as any).mockResolvedValueOnce(null);
+    deleteBtn.click();
+    confirmBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 4. Delete patch fail
+    await loadPatchesModule.loadPatches(['patch-1.mpq'], '/mock/wow', null);
+    const deleteBtn2 = document.querySelector('.delete-patch') as HTMLElement;
+    const confirmActions2 = deleteBtn2.parentElement?.nextElementSibling as HTMLElement;
+    const confirmBtn2 = confirmActions2.querySelector('.confirm-delete') as HTMLElement;
+    (invoke as any).mockRejectedValueOnce('Error');
+    deleteBtn2.click();
+    confirmBtn2.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 });

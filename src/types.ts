@@ -139,3 +139,10 @@ export interface UpdateDetails {
   version: string;
   body: string | null;
 }
+
+export interface InstalledAddonSourceMeta {
+  name: string;
+  modId?: number;
+  gitUrl?: string;
+}
+
