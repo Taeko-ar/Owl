@@ -6,16 +6,63 @@ export function escapeHtml(s: string) {
   );
 }
 
+declare const DOMPurify: { sanitize: (html: string, config?: object) => string } | undefined;
+
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  doc.querySelectorAll('script').forEach((n) => n.remove());
-  doc.querySelectorAll('*').forEach((node) => {
-    Array.from(node.attributes).forEach((attr) => {
-      if (attr.name.startsWith('on')) node.removeAttribute(attr.name);
-    });
+  const purify =
+    typeof DOMPurify !== 'undefined'
+      ? DOMPurify
+      : {
+          sanitize: (h: string) => {
+            const doc = new DOMParser().parseFromString(h, 'text/html');
+            doc.querySelectorAll('script').forEach((n) => n.remove());
+            doc.querySelectorAll('*').forEach((node) => {
+              Array.from(node.attributes).forEach((attr) => {
+                if (attr.name.startsWith('on')) node.removeAttribute(attr.name);
+              });
+            });
+            return doc.body.innerHTML;
+          },
+        };
+  return purify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'b',
+      'strong',
+      'em',
+      'i',
+      'u',
+      's',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'code',
+      'pre',
+      'blockquote',
+      'a',
+      'img',
+      'hr',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'span',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'title', 'target', 'rel', 'width', 'height'],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'base', 'link', 'meta', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick'],
   });
-  return doc.body.innerHTML;
 }
 
 export function formatWithColorCodes(s: string) {
@@ -57,7 +104,8 @@ export function renderMarkdown(md: string, addonPath?: string) {
   const escape = escapeHtml;
 
   function resolveImageSrc(url: string, base?: string) {
-    if (/^(https?:|data:|file:|\/\/)/i.test(url)) return url;
+    if (/^https?:\/\//i.test(url)) return url;
+    if (/^(data:|file:|\/\/)/i.test(url)) return '#';
     if (!base) return url;
     let baseNorm = base.replace(/\\/g, '/');
     if (!baseNorm.endsWith('/')) baseNorm += '/';
@@ -68,12 +116,12 @@ export function renderMarkdown(md: string, addonPath?: string) {
 
   let s = md.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre><code>${escape(code)}</code></pre>`);
   s = s.replace(/`([^`]+)`/g, (_m, code) => `<code>${escape(code)}</code>`);
-  s = s.replace(/^######\s*(.*)$/gm, '<h6>$1</h6>');
-  s = s.replace(/^#####\s*(.*)$/gm, '<h5>$1</h5>');
-  s = s.replace(/^####\s*(.*)$/gm, '<h4>$1</h4>');
-  s = s.replace(/^###\s*(.*)$/gm, '<h3>$1</h3>');
-  s = s.replace(/^##\s*(.*)$/gm, '<h2>$1</h2>');
-  s = s.replace(/^#\s*(.*)$/gm, '<h1>$1</h1>');
+  s = s.replace(/^######\s*(.*)$/gm, (_m, t) => `<h6>${escape(t)}</h6>`);
+  s = s.replace(/^#####\s*(.*)$/gm, (_m, t) => `<h5>${escape(t)}</h5>`);
+  s = s.replace(/^####\s*(.*)$/gm, (_m, t) => `<h4>${escape(t)}</h4>`);
+  s = s.replace(/^###\s*(.*)$/gm, (_m, t) => `<h3>${escape(t)}</h3>`);
+  s = s.replace(/^##\s*(.*)$/gm, (_m, t) => `<h2>${escape(t)}</h2>`);
+  s = s.replace(/^#\s*(.*)$/gm, (_m, t) => `<h1>${escape(t)}</h1>`);
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
   s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -83,10 +131,10 @@ export function renderMarkdown(md: string, addonPath?: string) {
     (_m, alt, url) =>
       `<img src="${resolveImageSrc(url, addonPath)}" alt="${escape(alt)}" class="max-w-full rounded my-2" />`
   );
-  s = s.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>'
-  );
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => {
+    const safe = /^https?:\/\//i.test(url.trim()) ? url.trim() : '#';
+    return `<a href="${safe}" target="_blank" rel="noreferrer noopener">${escape(text)}</a>`;
+  });
 
   const parts = s.split(/\n{2,}/).map((p) => p.replace(/\n/g, '<br>'));
   const html = parts.map((p) => `<p>${p}</p>`).join('');

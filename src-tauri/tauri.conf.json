@@ -41,7 +41,7 @@
       }
     ],
     "security": {
-      "csp": "default-src blob: data: filesystem: ws: http: https:; script-src 'self' 'unsafe-inline';"
+      "csp": "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src https://api.curseforge.com https://edge.forgecdn.net https://api.github.com https://github.com https://objects.githubusercontent.com ws://localhost:* http://localhost:*; font-src 'self'"
     }
   }
 }

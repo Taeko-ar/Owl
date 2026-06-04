@@ -239,20 +239,11 @@ pub fn save_addon_profile(
     let mut settings = load_settings()?;
     let mut profiles = settings.addon_profiles.unwrap_or_default();
 
-    let mut found = false;
-    for p in &mut profiles {
-        if p.name == name {
-            p.enabled_addons = enabled_addons.clone();
-            p.tweak_configs = Some(tweak_configs.clone());
-            p.enabled_patches = Some(enabled_patches.clone());
-            found = true;
-            break;
-        }
-    }
-    if !found {
-        if profiles.iter().any(|p| p.name == name) {
-            return Err("A profile with that name already exists".into());
-        }
+    if let Some(existing) = profiles.iter_mut().find(|p| p.name == name) {
+        existing.enabled_addons = enabled_addons;
+        existing.tweak_configs = Some(tweak_configs);
+        existing.enabled_patches = Some(enabled_patches);
+    } else {
         profiles.push(AddonProfile {
             name: name.to_string(),
             enabled_addons,
@@ -426,8 +417,16 @@ pub fn delete_addon_profile(name: String) -> std::result::Result<String, String>
     if let Some(ref mut profiles) = settings.addon_profiles {
         profiles.retain(|p| p.name != name);
     }
-    if settings.active_profile == Some(name) {
+    if let Some(ref mut map) = settings.addon_profiles_by_path {
+        for profiles in map.values_mut() {
+            profiles.retain(|p| p.name != name);
+        }
+    }
+    if settings.active_profile.as_deref() == Some(&name) {
         settings.active_profile = None;
+    }
+    if let Some(ref mut map) = settings.active_profile_by_path {
+        map.retain(|_, v| v != &name);
     }
     save_settings(settings)?;
     Ok("OK".into())

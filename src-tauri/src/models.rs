@@ -96,3 +96,8 @@ pub struct InstalledAddonSourceMeta {
     pub git_url: Option<String>,
 }
 
+pub struct PendingInstallations(
+    pub std::sync::Mutex<std::collections::HashMap<String, std::path::PathBuf>>
+);
+
+

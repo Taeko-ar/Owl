@@ -5,16 +5,42 @@ use crate::models::{CurseForgeMeta};
 use crate::fs_utils::*;
 use crate::archive::*;
 
+fn validate_download_url(url: &str) -> std::result::Result<(), String> {
+    let parsed = url::Url::parse(url).map_err(|_| "Invalid URL".to_string())?;
+    #[cfg(feature = "mock-api")]
+    {
+        if parsed.host_str() == Some("localhost") || parsed.host_str() == Some("127.0.0.1") {
+            return Ok(());
+        }
+    }
+    if parsed.scheme() != "https" {
+        return Err("Only HTTPS download URLs are permitted".into());
+    }
+    let host = parsed.host_str().unwrap_or("");
+    const ALLOWED: &[&str] = &[
+        "edge.forgecdn.net",
+        "mediafilez.forgecdn.net",
+        "api.curseforge.com",
+        "github.com",
+        "objects.githubusercontent.com",
+        "codeload.github.com",
+    ];
+    if !ALLOWED.iter().any(|&a| host == a || host.ends_with(&format!(".{}", a))) {
+        return Err(format!("Download from host '{}' is not permitted", host));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn search_curseforge_addons(
     query: String,
     category_id: Option<i32>,
     game_version: String,
-    is_mock: bool,
 ) -> std::result::Result<serde_json::Value, String> {
     let client = owl_http_client()?;
 
-    let base_url = get_curseforge_base_url(is_mock);
+    let base_url = get_curseforge_base_url();
+    let is_mock = cfg!(feature = "mock-api");
     let url = if is_mock {
         let game_ver = if game_version == "1.12.1" { "1.12.1" } else { "3.3.5" };
         format!(
@@ -49,10 +75,11 @@ pub async fn search_curseforge_addons(
 }
 
 #[tauri::command]
-pub async fn get_curseforge_mod_files(mod_id: i32, is_mock: bool) -> std::result::Result<serde_json::Value, String> {
+pub async fn get_curseforge_mod_files(mod_id: i32) -> std::result::Result<serde_json::Value, String> {
     let client = owl_http_client()?;
 
-    let base_url = get_curseforge_base_url(is_mock);
+    let base_url = get_curseforge_base_url();
+    let is_mock = cfg!(feature = "mock-api");
     let url = format!("{}/v1/mods/{}/files", base_url, mod_id);
 
     let mut req = client.get(&url);
@@ -71,10 +98,11 @@ pub async fn get_curseforge_mod_files(mod_id: i32, is_mock: bool) -> std::result
 }
 
 #[tauri::command]
-pub async fn get_curseforge_mod_description(mod_id: i32, is_mock: bool) -> std::result::Result<String, String> {
+pub async fn get_curseforge_mod_description(mod_id: i32) -> std::result::Result<String, String> {
     let client = owl_http_client()?;
 
-    let base_url = get_curseforge_base_url(is_mock);
+    let base_url = get_curseforge_base_url();
+    let is_mock = cfg!(feature = "mock-api");
     let url = format!("{}/v1/mods/{}/description", base_url, mod_id);
 
     let mut req = client.get(&url);
@@ -95,12 +123,16 @@ pub async fn get_curseforge_mod_description(mod_id: i32, is_mock: bool) -> std::
 
 #[tauri::command]
 pub async fn download_and_extract_addon(
+    state: tauri::State<'_, crate::models::PendingInstallations>,
+    app_handle: tauri::AppHandle,
     base_path: String,
     url: String,
     sha1: Option<String>,
     mod_id: Option<i32>,
     file_id: Option<i32>,
 ) -> std::result::Result<String, String> {
+    validate_download_url(&url)?;
+
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
     if !addons_dir.exists() {
         fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
@@ -130,9 +162,9 @@ pub async fn download_and_extract_addon(
         "zip"
     };
     let zip_path = extract_dir.join(format!("addon.{}", ext));
-    let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
+    
+    const MAX_DOWNLOAD: u64 = 512 * 1024 * 1024; // 512 MB
+    stream_response_to_file(Some(&app_handle), resp, &zip_path, MAX_DOWNLOAD).await?;
 
     if let Some(ref expected_sha1) = sha1 {
         if let Err(e) = verify_sha1(&zip_path, expected_sha1) {
@@ -209,7 +241,9 @@ pub async fn download_and_extract_addon(
                         let _ = fs::write(content_dir.join(".owl-cf-meta.json"), &meta_json);
                     }
                 }
-                return Err(format!("REPLACE_WARNING:{}|{}", content_dir.to_string_lossy(), conflicts.join(",")));
+                let token = uuid::Uuid::new_v4().to_string();
+                state.0.lock().unwrap().insert(token.clone(), content_dir.clone());
+                return Err(format!("REPLACE_WARNING:{}|{}", token, conflicts.join(",")));
             }
 
             for target_name in &resolved {
@@ -247,8 +281,10 @@ pub async fn download_and_extract_addon(
                     let _ = fs::write(content_dir.join(".owl-cf-meta.json"), &meta_json);
                 }
             }
+            let token = uuid::Uuid::new_v4().to_string();
+            state.0.lock().unwrap().insert(token.clone(), content_dir.clone());
             let names: Vec<String> = addon_dirs.iter().filter_map(|d| d.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())).collect();
-            return Err(format!("BUNDLED:{}|{}", content_dir.to_string_lossy(), names.join(",")));
+            return Err(format!("BUNDLED:{}|{}", token, names.join(",")));
         }
         ArchiveValidation::HasLooseFiles { filename } => {
             let _ = fs::remove_dir_all(&extract_dir);
@@ -272,12 +308,13 @@ pub async fn download_and_extract_addon(
 
 #[tauri::command]
 pub async fn resolve_addon_dependency(
+    state: tauri::State<'_, crate::models::PendingInstallations>,
+    app_handle: tauri::AppHandle,
     base_path: String,
     dependency_name: String,
-    is_mock: bool,
 ) -> std::result::Result<String, String> {
     let game_ver = crate::commands::game::detect_game_version(base_path.clone());
-    let search_results = search_curseforge_addons(dependency_name.clone(), None, game_ver.clone(), is_mock).await?;
+    let search_results = search_curseforge_addons(dependency_name.clone(), None, game_ver.clone()).await?;
     let data = search_results["data"].as_array().ok_or("No data in search results")?;
     if data.is_empty() {
         return Err(format!("No addon found for dependency: {}", dependency_name));
@@ -286,7 +323,7 @@ pub async fn resolve_addon_dependency(
     let best_mod = &data[0];
     let mod_id = best_mod["id"].as_i64().ok_or("No mod ID found")? as i32;
 
-    let files_res = get_curseforge_mod_files(mod_id, is_mock).await?;
+    let files_res = get_curseforge_mod_files(mod_id).await?;
     let files = files_res["data"].as_array().ok_or("No files data found")?;
 
     let mut selected_file = None;
@@ -323,6 +360,5 @@ pub async fn resolve_addon_dependency(
         None
     };
 
-    download_and_extract_addon(base_path, download_url, sha1, Some(mod_id), Some(file_id)).await
+    download_and_extract_addon(state, app_handle, base_path, download_url, sha1, Some(mod_id), Some(file_id)).await
 }
-

@@ -20,6 +20,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('../utils', () => ({
   showToast: vi.fn(),
   showTextInputModal: vi.fn(),
+  escapeHtml: vi.fn().mockImplementation((s) => s),
 }));
 
 vi.mock('../ui/import-export', () => ({

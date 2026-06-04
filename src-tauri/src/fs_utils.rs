@@ -1,6 +1,7 @@
 use dirs::config_dir;
 use std::fs;
 use std::path::{Path, PathBuf, Component};
+
 pub fn normalize_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
@@ -58,6 +59,7 @@ pub fn owl_http_client() -> std::result::Result<reqwest::Client, String> {
         .build()
         .map_err(|e| e.to_string())
 }
+
 pub fn try_cleanup_temp_install(addons_dir: &Path) {
     let temp_parent = addons_dir.join(".temp_install");
     if temp_parent.exists() {
@@ -68,4 +70,40 @@ pub fn try_cleanup_temp_install(addons_dir: &Path) {
             }
         }
     }
+}
+
+pub async fn stream_response_to_file(
+    app_handle: Option<&tauri::AppHandle>,
+    resp: reqwest::Response,
+    dest: &std::path::Path,
+    max_bytes: u64,
+) -> std::result::Result<(), String> {
+    use tokio::io::AsyncWriteExt;
+    use futures_util::StreamExt;
+    use tauri::Emitter;
+
+    let content_length = resp.content_length();
+    let mut file = tokio::fs::File::create(dest).await.map_err(|e| e.to_string())?;
+    let mut downloaded: u64 = 0;
+    let mut stream = resp.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        if downloaded > max_bytes {
+            drop(file);
+            let _ = std::fs::remove_file(dest);
+            return Err(format!("Download exceeded {} MB limit", max_bytes / 1_048_576));
+        }
+        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+
+        if let Some(app) = app_handle {
+            let _ = app.emit("download-progress", serde_json::json!({
+                "downloaded": downloaded,
+                "total": content_length,
+            }));
+        }
+    }
+    file.flush().await.map_err(|e| e.to_string())?;
+    Ok(())
 }

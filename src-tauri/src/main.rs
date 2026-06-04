@@ -17,12 +17,11 @@ pub mod commands;
 // This key was issued specifically for Owl
 const CURSEFORGE_API_KEY: &str = "$2a$10$iY/ujXomVXZgD5J7Rl3PAuhnTzVTIFsqehxEsq5EMM2pRfxlezEHS";
 
-fn get_curseforge_base_url(is_mock: bool) -> &'static str {
-    if is_mock {
-        "http://localhost:8080"
-    } else {
-        "https://api.curseforge.com"
-    }
+pub fn get_curseforge_base_url() -> &'static str {
+    #[cfg(feature = "mock-api")]
+    return "http://localhost:8080";
+    #[cfg(not(feature = "mock-api"))]
+    return "https://api.curseforge.com";
 }
 
 fn verify_sha1(file_path: &Path, expected_sha1: &str) -> std::result::Result<(), String> {
@@ -115,6 +114,7 @@ fn main() {
                 commands::torrent::TorrentState::new().await
             }).expect("failed to initialize torrent state");
             app.manage(state);
+            app.manage(models::PendingInstallations(std::sync::Mutex::new(std::collections::HashMap::new())));
 
             tauri::async_runtime::spawn(async move {
                 let _ = check_for_updates(handle).await;

@@ -97,6 +97,23 @@ pub fn validate_addon_archive(extract_dir: &Path, original_filename: &str) -> st
     Ok(ArchiveValidation::Bundled { addon_dirs })
 }
 
+fn verify_no_traversal(extract_dir: &Path) -> std::result::Result<(), String> {
+    let canonical_root = fs::canonicalize(extract_dir)
+        .map_err(|e| e.to_string())?;
+    for entry in walkdir::WalkDir::new(extract_dir) {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let canonical = fs::canonicalize(entry.path()).map_err(|e| e.to_string())?;
+        if !canonical.starts_with(&canonical_root) {
+            let _ = fs::remove_dir_all(extract_dir);
+            return Err(format!(
+                "Path traversal detected in archive: {}",
+                entry.path().display()
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Result<PathBuf, String> {
     let ext = file_path
         .extension()
@@ -130,6 +147,7 @@ pub fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Res
     } else if ext == "7z" {
         fs::create_dir_all(extract_dir).map_err(|e| e.to_string())?;
         sevenz_rust::decompress_file(file_path, extract_dir).map_err(|e| e.to_string())?;
+        verify_no_traversal(extract_dir)?;
     } else if ext == "rar" {
         fs::create_dir_all(extract_dir).map_err(|e| e.to_string())?;
         let mut archive = unrar::Archive::new(&file_path.to_string_lossy().to_string())
@@ -140,6 +158,7 @@ pub fn extract_archive(file_path: &Path, extract_dir: &Path) -> std::result::Res
                 .extract_to(&extract_dir.to_string_lossy().to_string())
                 .map_err(|e| e.to_string())?;
         }
+        verify_no_traversal(extract_dir)?;
     } else {
         return Err(format!("Unsupported archive type: {}", ext));
     }

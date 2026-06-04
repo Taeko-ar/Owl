@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getTranslation, translateDOM } from '../i18n/index';
-import { showToast, showTextInputModal } from '../utils';
+import { showToast, showTextInputModal, escapeHtml } from '../utils';
 import { loadAddonsAndPatches } from '../tabs/addons';
 import { handleImportString } from './import-export';
 import { getCurrentActiveSite } from '../state';
@@ -188,8 +188,8 @@ export function showBundledWarningModal(
       .map(
         (name) => `
         <label class="flex items-center gap-2 py-1.5 border-b border-slate-800 last:border-0 cursor-pointer">
-          <input type="checkbox" class="bundled-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-name="${name}" checked />
-          <span>${name}</span>
+          <input type="checkbox" class="bundled-addon-checkbox w-4 h-4 accent-sky-500 rounded border-slate-700 bg-slate-800 cursor-pointer" data-name="${escapeHtml(name)}" checked />
+          <span>${escapeHtml(name)}</span>
         </label>
       `
       )
@@ -264,7 +264,10 @@ export function showDependencyModal(basePath: string, dependencyNames: string[])
     const cancelBtn = document.getElementById('dependencyCancelBtn') as HTMLButtonElement;
 
     list.innerHTML = dependencyNames
-      .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+      .map(
+        (name) =>
+          `<div class="py-1 border-b border-slate-800 last:border-0">${escapeHtml(name)}</div>`
+      )
       .join('');
     modal.classList.remove('hidden');
 
@@ -365,7 +368,10 @@ export function showReplaceWarningModal(
     const cancelBtn = document.getElementById('replaceWarningCancelBtn') as HTMLButtonElement;
 
     list.innerHTML = conflictingNames
-      .map((name) => `<div class="py-1 border-b border-slate-800 last:border-0">${name}</div>`)
+      .map(
+        (name) =>
+          `<div class="py-1 border-b border-slate-800 last:border-0">${escapeHtml(name)}</div>`
+      )
       .join('');
     modal.classList.remove('hidden');
 

@@ -198,6 +198,7 @@ pub async fn start_torrent_download(
                     let _ = app_handle_clone.emit("torrent-progress", TorrentProgressPayload { downloads: progress_list });
                     
                     if is_finished {
+                        completed = true;
                         let mut dest_dir_unpack = String::new();
                         let mut name_unpack = String::new();
                         if let Some(dl) = active.get_mut(&info_hash_clone) {
@@ -242,8 +243,6 @@ pub async fn start_torrent_download(
                             progress_list.push(prog);
                         }
                         let _ = app_handle_clone.emit("torrent-progress", TorrentProgressPayload { downloads: progress_list });
-                        
-                        completed = true;
 
                         // Stop seeding by deleting from rqbit session but keeping files
                         let api_delete = Arc::clone(&api_clone);
@@ -462,10 +461,22 @@ fn has_wow_exe(path: &Path) -> bool {
     path.join("wow.exe").exists() || path.join("WoW.exe").exists()
 }
 
-async fn auto_create_game_profile(_app_handle: &AppHandle, folder: &Path) -> Result<(), String> {
-    let mut settings = crate::commands::settings::load_settings()?;
-    settings.path = Some(folder.to_string_lossy().to_string());
-    crate::commands::settings::save_settings(settings)?;
+async fn auto_create_game_profile(app_handle: &AppHandle, folder: &Path) -> Result<(), String> {
+    let current = crate::commands::settings::load_settings()?;
+    if current.path.is_some() {
+        let _ = app_handle.emit(
+            "torrent-suggest-path",
+            folder.to_string_lossy().to_string(),
+        );
+    } else {
+        let mut settings = current;
+        settings.path = Some(folder.to_string_lossy().to_string());
+        crate::commands::settings::save_settings(settings)?;
+        let _ = app_handle.emit(
+            "torrent-completed",
+            format!("Game path set to: {}", folder.display()),
+        );
+    }
     Ok(())
 }
 

@@ -41,9 +41,14 @@ describe('utils', () => {
 
   it('renders markdown headings, bold, code, links, and sanitizes scripts', () => {
     const html = renderMarkdown(
-      '# Title\n\n**Bold** and `code`.\n\n```\nconst x = 1;\n```\n\n[Link](https://example.com)\n\n<script>alert(1)</script>'
+      '# Title\n## H2\n### H3\n#### H4\n##### H5\n###### H6\n\n**Bold** and `code`.\n\n```\nconst x = 1;\n```\n\n[Link](https://example.com)\n\n<script>alert(1)</script>'
     );
     expect(html).toContain('<h1>Title</h1>');
+    expect(html).toContain('<h2>H2</h2>');
+    expect(html).toContain('<h3>H3</h3>');
+    expect(html).toContain('<h4>H4</h4>');
+    expect(html).toContain('<h5>H5</h5>');
+    expect(html).toContain('<h6>H6</h6>');
     expect(html).toContain('<strong>Bold</strong>');
     expect(html).toContain('<code>code</code>');
     expect(html).toContain('<pre><code><br>const x = 1;<br></code></pre>');
@@ -311,5 +316,33 @@ describe('utils', () => {
     expect(img).not.toBeNull();
     expect(img?.getAttribute('onerror')).toBeNull();
     expect(img?.getAttribute('onclick')).toBeNull();
+  });
+
+  it('covers DOMPurify branch when defined globally', () => {
+    const originalDOMPurify = (globalThis as any).DOMPurify;
+    const sanitizeMock = vi.fn().mockReturnValue('purified html');
+    (globalThis as any).DOMPurify = { sanitize: sanitizeMock };
+    try {
+      const res = sanitizeHtml('<p>test</p>');
+      expect(res).toBe('purified html');
+      expect(sanitizeMock).toHaveBeenCalled();
+    } finally {
+      if (originalDOMPurify === undefined) {
+        delete (globalThis as any).DOMPurify;
+      } else {
+        (globalThis as any).DOMPurify = originalDOMPurify;
+      }
+    }
+  });
+
+  it('covers data, file, and relative protocol URL paths in image rendering', () => {
+    expect(renderMarkdown('![alt](data:image/png;base64,123)')).toContain('src="#"');
+    expect(renderMarkdown('![alt](file:///C:/test.png)')).toContain('src="#"');
+    expect(renderMarkdown('![alt](//example.com/test.png)')).toContain('src="#"');
+  });
+
+  it('covers unsafe markdown link fallback to hash', () => {
+    expect(renderMarkdown('[link](javascript:alert(1))')).toContain('href="#"');
+    expect(renderMarkdown('[link](file:///etc/passwd)')).toContain('href="#"');
   });
 });

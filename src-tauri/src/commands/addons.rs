@@ -5,7 +5,7 @@ use crate::models::*;
 use crate::git::*;
 use crate::archive::*;
 use crate::github::*;
-use crate::fs_utils::owl_http_client;
+use crate::fs_utils::{owl_http_client, stream_response_to_file};
 
 #[tauri::command]
 pub fn get_addons(base_path: String) -> std::result::Result<Vec<String>, String> {
@@ -86,7 +86,12 @@ pub fn parse_toc(base_path: String, addon_name: String) -> std::result::Result<A
     for candidate in &readme_candidates {
         let p = addon_path.join(candidate);
         if p.exists() {
-            readme = Some(fs::read_to_string(p).map_err(|e| e.to_string())?);
+            const README_LIMIT: u64 = 256 * 1024;
+            let f = fs::File::open(&p).map_err(|e| e.to_string())?;
+            let mut buf = Vec::with_capacity(README_LIMIT as usize);
+            use std::io::Read;
+            f.take(README_LIMIT).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+            readme = Some(String::from_utf8_lossy(&buf).into_owned());
             break;
         }
     }
@@ -257,9 +262,8 @@ pub async fn update_addon(base_path: String, addon_name: String) -> std::result:
 
                     let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
                     let zip_path = temp_dir.path().join("addon.zip");
-                    let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-                    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-                    std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
+                    const MAX_DOWNLOAD: u64 = 512 * 1024 * 1024; // 512 MB
+                    stream_response_to_file(None, resp, &zip_path, MAX_DOWNLOAD).await?;
 
                     let extract_dir = temp_dir.path().join("extract");
                     let extracted_root = extract_archive(&zip_path, &extract_dir)?;

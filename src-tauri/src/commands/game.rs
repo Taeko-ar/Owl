@@ -142,6 +142,13 @@ pub fn read_config(base_path: String) -> std::result::Result<String, String> {
 
 #[tauri::command]
 pub fn set_config_value(base_path: String, key: String, value: String) -> std::result::Result<String, String> {
+    if key.contains('\n') || key.contains('\r') || key.contains('"') {
+        return Err("Invalid config key".into());
+    }
+    if value.contains('\n') || value.contains('\r') {
+        return Err("Invalid config value".into());
+    }
+
     let config_path = PathBuf::from(&base_path).join("WTF").join("config.wtf");
     if !config_path.exists() {
         return Err("config.wtf not found".into());

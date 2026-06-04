@@ -85,9 +85,8 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
 
         let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
         let zip_path = temp_dir.path().join("addon.zip");
-        let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-        std::io::copy(&mut &bytes[..], &mut file).map_err(|e| e.to_string())?;
+        const MAX_DOWNLOAD: u64 = 512 * 1024 * 1024; // 512 MB
+        stream_response_to_file(None, resp, &zip_path, MAX_DOWNLOAD).await?;
 
         let extract_dir = temp_dir.path().join("extract");
         let extracted_root = extract_archive(&zip_path, &extract_dir)?;
@@ -116,8 +115,30 @@ pub async fn import_addon(base_path: String, repo_url: String) -> std::result::R
     }
 }
 
+fn assert_within_temp_install(
+    addons_dir: &std::path::Path,
+    candidate: &std::path::Path,
+) -> std::result::Result<(), String> {
+    let temp_root = addons_dir.join(".temp_install");
+    if !temp_root.exists() {
+        return Err("Temp install directory not found".to_string());
+    }
+    let canonical_root = fs::canonicalize(&temp_root)
+        .map_err(|_| "Temp install directory canonicalization failed".to_string())?;
+    let canonical_candidate = fs::canonicalize(candidate)
+        .map_err(|_| "Provided path does not exist".to_string())?;
+    if !canonical_candidate.starts_with(&canonical_root) {
+        return Err("Path is outside the expected temp directory".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> std::result::Result<String, String> {
+pub async fn import_addon_files(
+    state: tauri::State<'_, crate::models::PendingInstallations>,
+    base_path: String,
+    file_paths: Vec<String>
+) -> std::result::Result<String, String> {
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
     if !addons_dir.exists() {
         fs::create_dir_all(&addons_dir).map_err(|e| e.to_string())?;
@@ -167,7 +188,9 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
                 }
 
                 if !conflicts.is_empty() {
-                    return Err(format!("REPLACE_WARNING:{}|{}", extract_dir.to_string_lossy(), conflicts.join(",")));
+                    let token = uuid::Uuid::new_v4().to_string();
+                    state.0.lock().unwrap().insert(token.clone(), extract_dir.clone());
+                    return Err(format!("REPLACE_WARNING:{}|{}", token, conflicts.join(",")));
                 }
 
                 for dir in addon_dirs {
@@ -184,8 +207,10 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
                 crate::fs_utils::try_cleanup_temp_install(&addons_dir);
             }
             ArchiveValidation::Bundled { addon_dirs } => {
+                let token = uuid::Uuid::new_v4().to_string();
+                state.0.lock().unwrap().insert(token.clone(), extract_dir.clone());
                 let names: Vec<String> = addon_dirs.iter().filter_map(|d| d.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())).collect();
-                return Err(format!("BUNDLED:{}|{}", extract_dir.to_string_lossy(), names.join(",")));
+                return Err(format!("BUNDLED:{}|{}", token, names.join(",")));
             }
             ArchiveValidation::HasLooseFiles { filename } => {
                 let _ = fs::remove_dir_all(&extract_dir);
@@ -210,15 +235,23 @@ pub async fn import_addon_files(base_path: String, file_paths: Vec<String>) -> s
 
 #[tauri::command]
 pub fn confirm_install_bundled(
+    state: tauri::State<'_, crate::models::PendingInstallations>,
     base_path: String,
     temp_dir_path: String,
     allowed_dirs: Option<Vec<String>>,
 ) -> std::result::Result<String, String> {
     let addons_dir = PathBuf::from(&base_path).join("Interface").join("AddOns");
-    let temp_dir = PathBuf::from(&temp_dir_path);
+    
+    let temp_dir = state.0.lock().unwrap()
+        .get(&temp_dir_path)
+        .cloned()
+        .ok_or_else(|| "Unknown installation token".to_string())?;
+
     if !temp_dir.exists() {
         return Err("Temporary extraction directory not found".into());
     }
+
+    assert_within_temp_install(&addons_dir, &temp_dir)?;
 
     let validation = validate_addon_archive(&temp_dir, "addon.zip")?;
     let mut imported = Vec::new();
@@ -273,12 +306,31 @@ pub fn confirm_install_bundled(
     }
     let _ = fs::remove_dir_all(&target_to_remove);
     crate::fs_utils::try_cleanup_temp_install(&addons_dir);
+    
+    // Remove from the pending installations map
+    state.0.lock().unwrap().remove(&temp_dir_path);
+
     Ok(format!("Imported addon(s): {}", imported.join(", ")))
 }
 
 #[tauri::command]
-pub fn cleanup_temp_archive(temp_dir_path: String) -> std::result::Result<(), String> {
-    let temp_dir = PathBuf::from(&temp_dir_path);
+pub fn cleanup_temp_archive(
+    state: tauri::State<'_, crate::models::PendingInstallations>,
+    temp_dir_path: String,
+) -> std::result::Result<(), String> {
+    let temp_dir = state.0.lock().unwrap()
+        .get(&temp_dir_path)
+        .cloned()
+        .ok_or_else(|| "Unknown installation token".to_string())?;
+
+    let addons_dir = temp_dir
+        .parent()                     // .temp_install/
+        .and_then(|p| p.parent())     // Interface/AddOns/
+        .ok_or("Cannot resolve addons directory from temp path")?
+        .to_path_buf();
+
+    assert_within_temp_install(&addons_dir, &temp_dir)?;
+
     let mut target_to_remove = temp_dir.clone();
     if temp_dir.file_name().and_then(|s| s.to_str()) == Some("content") {
         if let Some(parent) = temp_dir.parent() {
@@ -291,6 +343,9 @@ pub fn cleanup_temp_archive(temp_dir_path: String) -> std::result::Result<(), St
     if let Some(parent) = target_to_remove.parent() {
         crate::fs_utils::try_cleanup_temp_install(parent);
     }
+
+    state.0.lock().unwrap().remove(&temp_dir_path);
+
     Ok(())
 }
 

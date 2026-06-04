@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getTranslation } from '../i18n/index';
-import { showToast, setLoadingState, clearLoadingState } from '../utils';
+import { showToast, setLoadingState, clearLoadingState, escapeHtml } from '../utils';
 
 interface ActiveDownload {
   id: number;
@@ -433,8 +433,8 @@ export function setupTorrentEvents(reloadCallback: () => Promise<void>) {
 
       item.innerHTML = `
         <div class="flex items-center justify-between font-semibold text-slate-200">
-          <span class="truncate pr-4">${dl.name}</span>
-          <button class="cancel-dl-btn text-red-400 hover:text-red-300 transition-colors cursor-pointer" data-hash="${dl.infoHash}">✕</button>
+          <span class="truncate pr-4">${escapeHtml(dl.name)}</span>
+          <button class="cancel-dl-btn text-red-400 hover:text-red-300 transition-colors cursor-pointer" data-hash="${escapeHtml(dl.infoHash)}">✕</button>
         </div>
         <div class="h-1 bg-slate-800 rounded-full overflow-hidden">
           <div class="h-full bg-sky-600 rounded-full" style="width: ${percent}%;"></div>
@@ -592,6 +592,35 @@ export function setupTorrentEvents(reloadCallback: () => Promise<void>) {
     await checkGamePathValidity();
     await reloadCallback();
     await refreshActiveDownloads();
+  });
+
+  // Suggest Path Listener
+  listen<string>('torrent-suggest-path', async (event) => {
+    const suggestedPath = event.payload;
+    const accept = confirm(
+      `A WoW installation was downloaded to: ${suggestedPath}\nDo you want to set this as your game folder path?`
+    );
+    if (accept) {
+      const windowSizeSelect = document.getElementById('windowSize') as HTMLSelectElement | null;
+      const stayOpen = document.getElementById('stayOpen') as HTMLInputElement | null;
+      const settings = {
+        path: suggestedPath,
+        windowSize: windowSizeSelect?.value || '1280x720',
+        stayOpen: stayOpen ? stayOpen.checked : true,
+      };
+      try {
+        await invoke('save_settings', { settings });
+        const gamePathInput = document.getElementById('gamePath') as HTMLInputElement | null;
+        if (gamePathInput) {
+          gamePathInput.value = suggestedPath;
+        }
+        showToast(getTranslation('status.saved'));
+        await checkGamePathValidity();
+        await reloadCallback();
+      } catch (err) {
+        console.error('Failed to save settings:', err);
+      }
+    }
   });
 
   // Error Listener

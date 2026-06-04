@@ -3451,6 +3451,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "dirs 5.0.1",
+ "futures-util",
  "librqbit",
  "reqwest 0.11.27",
  "rfd",
@@ -3464,6 +3465,9 @@ dependencies = [
  "tempfile",
  "tokio",
  "unrar",
+ "url",
+ "uuid",
+ "walkdir",
  "zip 2.4.2",
 ]
 
@@ -4020,10 +4024,12 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.24.1",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams 0.4.2",
  "web-sys",
  "webpki-roots",
  "winreg 0.50.0",

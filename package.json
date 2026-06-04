@@ -8,7 +8,7 @@
     "build": "vite build && tauri build",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts,.tsx,.js",
+    "lint": "npx vitest run --coverage",
     "lint:fix": "eslint . --ext .ts,.tsx,.js --fix",
     "format": "prettier --write .",
     "cargo:check": "cd src-tauri && cargo check",
