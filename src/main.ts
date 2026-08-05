@@ -1,6 +1,7 @@
 import './style.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { setLoadingState, clearLoadingState } from './utils';
 import { setupSettingsEvents, loadSavedSettings, checkLauncherUpdates } from './ui/settings';
 import { translations, getTranslation, translateDOM, setAppLanguage } from './i18n';
@@ -367,7 +368,50 @@ minimizeBtn?.addEventListener('click', async () => {
   }
 });
 
-document.querySelector('.titlebar')?.addEventListener('dblclick', (e) => {
+const titlebarEl = document.querySelector('.titlebar');
+let isTitlebarDragging = false;
+let startMouseX = 0;
+let startMouseY = 0;
+let startWinX = 0;
+let startWinY = 0;
+
+titlebarEl?.addEventListener('mousedown', async (e) => {
+  const mouseEv = e as MouseEvent;
+  if (
+    mouseEv.buttons === 1 &&
+    !(mouseEv.target as HTMLElement).closest('.titlebar-button, button, input, select, a')
+  ) {
+    try {
+      const [winX, winY] = await invoke<[number, number]>('get_window_position');
+      startWinX = winX;
+      startWinY = winY;
+      startMouseX = mouseEv.screenX;
+      startMouseY = mouseEv.screenY;
+      isTitlebarDragging = true;
+    } catch {
+      invoke('start_drag').catch(() => {});
+    }
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isTitlebarDragging) return;
+  if (e.buttons !== 1) {
+    isTitlebarDragging = false;
+    return;
+  }
+  const dx = e.screenX - startMouseX;
+  const dy = e.screenY - startMouseY;
+  const targetX = startWinX + dx;
+  const targetY = startWinY + dy;
+  invoke('set_window_position_logical', { x: targetX, y: targetY }).catch(() => {});
+});
+
+window.addEventListener('mouseup', () => {
+  isTitlebarDragging = false;
+});
+
+titlebarEl?.addEventListener('dblclick', (e) => {
   e.preventDefault();
   e.stopPropagation();
 });

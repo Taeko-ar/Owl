@@ -48,6 +48,19 @@ async fn check_for_updates(app: tauri::AppHandle) -> std::result::Result<(), Str
 }
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("GDK_BACKEND").is_err() {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+        if std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        }
+        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     let allow_devtools = std::env::var("ALLOW_DEVTOOLS").unwrap_or_default() == "1";
 
     let builder = tauri::Builder::default()
@@ -81,6 +94,9 @@ fn main() {
             commands::window::minimize_window,
             commands::window::close_window,
             commands::window::set_window_size,
+            commands::window::start_drag,
+            commands::window::get_window_position,
+            commands::window::set_window_position_logical,
             commands::addons::check_addon_git_status,
             commands::addons::change_addon_branch,
             commands::addons::export_addon_list,

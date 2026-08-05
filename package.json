@@ -8,6 +8,7 @@
     "dev:linux": "GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
     "tauri": "tauri",
     "build": "vite build && tauri build",
+    "build:exe": "tauri build --no-bundle",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "lint": "vitest run --coverage",
