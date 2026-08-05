@@ -4,6 +4,8 @@
   "version": "1.1.2",
   "identifier": "com.owl",
   "build": {
+    "beforeDevCommand": "pnpm exec vite",
+    "beforeBuildCommand": "pnpm exec vite build",
     "devUrl": "http://localhost:4173",
     "frontendDist": "../dist"
   },
@@ -22,9 +24,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": [
-        "https://github.com/Taeko-ar/Owl/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/Taeko-ar/Owl/releases/latest/download/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxRUJCMkI1RDE2MEEwRDQKUldUVW9HRFJ0YkxyOFZvaXgwU1FmckZ3eUczRzFncXlxaGdPU2JPbTJwdGh0MXIrajNtQlF5d3cK"
     }
   },

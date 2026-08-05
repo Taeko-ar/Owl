@@ -10,6 +10,10 @@
   <img src="img/launcher.gif" width="100%" alt="OWL Preview">
 </p>
 
+## Install
+
+Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases).
+
 ## Features
 
 - **Addon & Patch Management**:
@@ -29,46 +33,91 @@
 - **Utilities**:
   - Multi-language support (English, Spanish (Latam), Portuguese (Brasil))
   - Dark/Light mode
+- **Multi OS Support**:
+    - Cross-platform launcher supporting Windows and Linux (Bazzite only validated but it should work on any Fedora-based distro). Check the [Linux Setup & Compatibility guide](#running-wowexe-on-linux-proton--wine) for Proton/Wine runner configuration and Wayland setup.
 
-## Install
-
-Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases).
-
-## Local development
+## Local Development
 
 1. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install
    ```
 
-- Run in development mode:
+2. Run in development mode:
 
+   ```bash
+   # Standard
+   pnpm run dev
+
+   # Linux (Wayland / WebKitGTK fix)
+   pnpm run dev:linux
+   ```
+
+3. Run tests:
+
+   ```bash
+   # Run Rust cargo check
+   pnpm run cargo:check
+
+   # Run frontend unit tests
+   pnpm run unit
+
+   # Run with coverage reports
+   pnpm run lint
+
+   # Run automated E2E tests
+   pnpm run automation
+   ```
+
+4. Build for production:
+
+   ```bash
+   pnpm run build
+   ```
+
+
+## Linux Setup & Compatibility
+
+### WebKitGTK & Wayland Rendering
+If running on Linux under Wayland or encountering rendering/WebKitGTK issues (e.g. blank window or display errors), use the dedicated Linux dev command:
+
+```bash
+pnpm run dev:linux
+```
+
+This passes recommended environment overrides:
+`GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1`
+
+<a id="linux-proton-setup"></a>
+### Running WoW.exe on Linux (Proton & Wine)
+To launch Windows executables (`WoW.exe`), Owl handles compatibility automatically:
+
+- **Steam Proton (Automatic)**: Owl automatically scans system Steam installations (Native Steam, Flatpak Steam, `compatibilitytools.d`, GE-Proton, Proton Experimental) and launches the game with an automatically provisioned Proton prefix at `~/.local/share/owl/proton_prefix/`.
+- **System Wine**: If Steam Proton is unavailable, Owl automatically falls back to system `wine` or `wine64`.
+- **Custom Runner Override**: You can specify a custom runner or custom Proton path via environment variables:
   ```bash
-  # Backend
-  npm run dev
+  GAME_RUNNER="proton run" pnpm run dev:linux
+  # or
+  GAME_RUNNER="/path/to/proton run" pnpm run dev:linux
   ```
 
+### System Build Dependencies
+Building from source on Linux requires GTK3 and WebKitGTK development packages:
+
+- **Debian / Ubuntu**:
   ```bash
-  # Frontend
-  npm run preview
+  sudo apt update && sudo apt install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
   ```
-
-- Run tests:
-
+- **Fedora**:
   ```bash
-  # Run all unit tests
-  npm run unit
-
-  # Run with coverage reports
-  npx vitest run --coverage
-
-  # Run automated E2E tests
-  npm run automation
+  sudo dnf install gtk3-devel webkit2gtk4.1-devel gcc-c++ openssl-devel
   ```
-
-- Build for production:
-
+- **Bazzite**:
   ```bash
-  npm run build
+  sudo rpm-ostree install webkit2gtk4.1-devel gtk3-devel openssl-devel dbus-devel libsoup3-devel
+  ```
+- **Arch Linux**:
+  ```bash
+  sudo pacman -S --needed base-devel webkit2gtk-4.1 gtk3 cairo pango
   ```

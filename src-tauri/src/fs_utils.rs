@@ -107,3 +107,77 @@ pub async fn stream_response_to_file(
     file.flush().await.map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub const GAME_EXECUTABLE_CANDIDATES: &[&str] = &[
+    "WoW.exe",
+    "wow.exe",
+    "WoW-64.exe",
+    "wow-64.exe",
+    "WoW-32.exe",
+    "wow-32.exe",
+    "WOW.EXE",
+    "WoW.app",
+    "World of Warcraft.app",
+    "WoW",
+    "worldofwarcraft",
+    "World of Warcraft",
+];
+
+pub fn find_game_executable(base: &Path) -> Option<String> {
+    if !base.exists() || !base.is_dir() {
+        return None;
+    }
+
+    // 1. Check exact candidate matches
+    for candidate in GAME_EXECUTABLE_CANDIDATES {
+        if base.join(candidate).exists() {
+            return Some((*candidate).to_string());
+        }
+    }
+
+    // 2. Fallback: case-insensitive scan of base directory
+    if let Ok(entries) = fs::read_dir(base) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let lower = name.to_lowercase();
+            if lower == "wow.exe"
+                || lower == "wow-64.exe"
+                || lower == "wow-32.exe"
+                || lower == "wow.app"
+                || lower == "world of warcraft.app"
+                || lower == "wow"
+                || lower == "worldofwarcraft"
+                || lower == "world of warcraft"
+                || (lower.starts_with("wow") && lower.ends_with(".exe"))
+            {
+                return Some(name);
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs::File;
+
+    #[test]
+    fn test_find_game_executable_variations() {
+        let dir = tempdir().unwrap();
+        let path = dir.path();
+        assert!(find_game_executable(path).is_none());
+
+        // Test lowercase wow.exe
+        File::create(path.join("wow.exe")).unwrap();
+        assert_eq!(find_game_executable(path), Some("wow.exe".to_string()));
+
+        // Cleanup and test WoW-64.exe
+        fs::remove_file(path.join("wow.exe")).unwrap();
+        File::create(path.join("WoW-64.exe")).unwrap();
+        assert_eq!(find_game_executable(path), Some("WoW-64.exe".to_string()));
+    }
+}
+

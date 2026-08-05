@@ -458,7 +458,7 @@ fn move_or_copy_directory_contents(src_dir: &Path, dest_dir: &Path) -> std::io::
 
 
 fn has_wow_exe(path: &Path) -> bool {
-    path.join("wow.exe").exists() || path.join("WoW.exe").exists()
+    crate::fs_utils::find_game_executable(path).is_some()
 }
 
 async fn auto_create_game_profile(app_handle: &AppHandle, folder: &Path) -> Result<(), String> {
@@ -497,18 +497,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 #[tauri::command]
 pub fn validate_game_path(base_path: String) -> bool {
     let base = std::path::PathBuf::from(&base_path);
-    if !base.exists() {
-        return false;
-    }
-    let candidates = [
-        "WoW.exe",
-        "WoW.app",
-        "World of Warcraft.app",
-        "WoW",
-        "worldofwarcraft",
-        "World of Warcraft",
-    ];
-    candidates.iter().any(|c| base.join(c).exists())
+    crate::fs_utils::find_game_executable(&base).is_some()
 }
 
 #[cfg(test)]
@@ -535,6 +524,11 @@ mod tests {
 
         File::create(path.join("WoW.exe")).unwrap();
         assert!(validate_game_path(path.to_string_lossy().to_string()));
+
+        let dir2 = tempdir().unwrap();
+        let path2 = dir2.path();
+        File::create(path2.join("wow.exe")).unwrap();
+        assert!(validate_game_path(path2.to_string_lossy().to_string()));
     }
 
     #[test]
@@ -553,3 +547,4 @@ mod tests {
         assert_eq!(found.unwrap(), sub);
     }
 }
+

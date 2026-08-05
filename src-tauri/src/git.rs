@@ -5,7 +5,9 @@ use std::os::windows::process::CommandExt;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use crate::fs_utils::{CREATE_NO_WINDOW, owl_http_client};
+#[cfg(target_os = "windows")]
+use crate::fs_utils::CREATE_NO_WINDOW;
+use crate::fs_utils::owl_http_client;
 pub fn is_valid_branch_name(branch: &str) -> bool {
     if branch.is_empty() || branch.starts_with('-') || branch.contains("..") {
         return false;
