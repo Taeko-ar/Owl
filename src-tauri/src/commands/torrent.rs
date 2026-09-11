@@ -929,26 +929,38 @@ mod tests {
         assert!(dest.path().join("top.txt").exists());
     }
 
+    /// A temp dir on a filesystem other than `other`'s, so `fs::rename` between the two
+    /// fails with a real `EXDEV` and the copy-then-remove fallback runs for real. Which
+    /// paths are separate mounts is machine-specific — `/tmp` is its own tmpfs on a dev
+    /// box but sits on the root filesystem on a CI runner — so probe candidates and
+    /// compare `st_dev` rather than hardcoding a pair that only holds on one machine.
+    fn cross_device_tempdir(other: &Path) -> Option<tempfile::TempDir> {
+        let other_dev = fs::metadata(other).ok()?.dev();
+        [
+            "/dev/shm",
+            "/var/tmp",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/target"),
+        ]
+        .iter()
+        .filter_map(|root| tempfile::Builder::new().tempdir_in(root).ok())
+        .find(|dir| {
+            fs::metadata(dir.path())
+                .map(|meta| meta.dev() != other_dev)
+                .unwrap_or(false)
+        })
+    }
+
     #[test]
     fn test_move_or_copy_cross_device_falls_back_to_copy() {
-        // /tmp (tmpfs) and the project's own target dir are genuinely different
-        // filesystems on this machine, so `fs::rename` between them fails with a real
-        // EXDEV and this exercises the copy-then-remove fallback for real.
-        let cross_device_root =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/torrent_test_cross_device");
-        std::fs::create_dir_all(&cross_device_root).unwrap();
-        let dest = tempfile::Builder::new()
-            .tempdir_in(&cross_device_root)
-            .unwrap();
         let src = tempdir().unwrap();
+        let Some(dest) = cross_device_tempdir(src.path()) else {
+            // Single-filesystem machine: `fs::rename` can never return EXDEV here, so
+            // there is no fallback to exercise.
+            return;
+        };
         std::fs::create_dir_all(src.path().join("sub")).unwrap();
         File::create(src.path().join("sub").join("a.txt")).unwrap();
         File::create(src.path().join("top.txt")).unwrap();
-        assert_ne!(
-            fs::metadata(src.path()).unwrap().dev(),
-            fs::metadata(dest.path()).unwrap().dev(),
-            "test requires /tmp and the project target dir on different devices"
-        );
 
         move_or_copy_directory_contents(src.path(), dest.path()).unwrap();
 
