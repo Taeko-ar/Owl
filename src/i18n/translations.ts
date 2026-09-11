@@ -30,6 +30,13 @@ export const translations: Record<string, Record<string, string>> = {
     'buttons.play': 'PLAY',
     'settings.title': 'Settings',
     'settings.gameFolder': 'Game Folder',
+    'settings.preferredExe': 'Game Executable',
+    'settings.preferredExeHelp':
+      'Multiple WoW executables detected. Select which binary to launch.',
+    'launcherChoice.title': 'Select Game Executable',
+    'launcherChoice.desc':
+      'Multiple WoW executables were found in your game folder. Please select which executable to launch:',
+    'launcherChoice.launchBtn': 'Launch & Remember',
     'settings.browse': 'Browse',
     'settings.windowSize': 'Window Size',
     'settings.keepOpen': 'Keep launcher open after launch',
@@ -335,6 +342,13 @@ export const translations: Record<string, Record<string, string>> = {
     'buttons.play': 'JUGAR',
     'settings.title': 'Configuración',
     'settings.gameFolder': 'Carpeta del juego',
+    'settings.preferredExe': 'Ejecutable del Juego',
+    'settings.preferredExeHelp':
+      'Se detectaron múltiples ejecutables de WoW. Selecciona qué binario ejecutar.',
+    'launcherChoice.title': 'Seleccionar Ejecutable del Juego',
+    'launcherChoice.desc':
+      'Se encontraron múltiples ejecutables de WoW en la carpeta del juego. Selecciona cuál ejecutar:',
+    'launcherChoice.launchBtn': 'Ejecutar y Recordar',
     'settings.browse': 'Buscar',
     'settings.windowSize': 'Tamaño de ventana',
     'settings.keepOpen': 'Mantener el lanzador abierto después de iniciar',
@@ -642,6 +656,13 @@ export const translations: Record<string, Record<string, string>> = {
     'buttons.play': 'JOGAR',
     'settings.title': 'Configurações',
     'settings.gameFolder': 'Pasta do jogo',
+    'settings.preferredExe': 'Executável do Jogo',
+    'settings.preferredExeHelp':
+      'Múltiplos executáveis do WoW detectados. Selecione qual binário executar.',
+    'launcherChoice.title': 'Selecionar Executável do Jogo',
+    'launcherChoice.desc':
+      'Múltiplos executáveis do WoW foram encontrados na pasta do jogo. Selecione qual executar:',
+    'launcherChoice.launchBtn': 'Iniciar e Lembrar',
     'settings.browse': 'Procurar',
     'settings.windowSize': 'Tamanho da janela',
     'settings.keepOpen': 'Manter o inicializador aberto após iniciar',

@@ -11,7 +11,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "rpm", "nsis", "msi"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -31,13 +31,17 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "OWL",
+        "url": "index.html",
         "width": 1280,
         "height": 720,
         "resizable": false,
         "maximizable": false,
         "decorations": false,
-        "fullscreen": false
+        "fullscreen": false,
+        "visible": false,
+        "backgroundColor": "#020617"
       }
     ],
     "security": {

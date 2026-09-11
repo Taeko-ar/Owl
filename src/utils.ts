@@ -114,8 +114,12 @@ export function renderMarkdown(md: string, addonPath?: string) {
     return encodeURI('file:///' + joined);
   }
 
-  let s = md.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre><code>${escape(code)}</code></pre>`);
-  s = s.replace(/`([^`]+)`/g, (_m, code) => `<code>${escape(code)}</code>`);
+  let s = md.replace(
+    /```([\s\S]*?)```/g,
+    (_m, code) =>
+      `<pre class="whitespace-pre-wrap break-words overflow-x-auto bg-slate-900/60 rounded p-2 my-2"><code>${escape(code)}</code></pre>`
+  );
+  s = s.replace(/`([^`]+)`/g, (_m, code) => `<code class="break-words">${escape(code)}</code>`);
   s = s.replace(/^######\s*(.*)$/gm, (_m, t) => `<h6>${escape(t)}</h6>`);
   s = s.replace(/^#####\s*(.*)$/gm, (_m, t) => `<h5>${escape(t)}</h5>`);
   s = s.replace(/^####\s*(.*)$/gm, (_m, t) => `<h4>${escape(t)}</h4>`);

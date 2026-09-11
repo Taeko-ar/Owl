@@ -11,12 +11,13 @@
     "build:exe": "tauri build --no-bundle",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
-    "lint": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx,.js",
     "lint:fix": "eslint . --ext .ts,.tsx,.js --fix",
     "format": "prettier --write .",
     "cargo:check": "cd src-tauri && cargo check",
-    "test": "pnpm run cargo:check && pnpm run unit && pnpm run automation",
-    "unit": "vitest run",
+    "test": "pnpm run cargo:check && pnpm run unit:front && pnpm run unit:back && pnpm run automation",
+    "unit:front": "vitest run --coverage --reporter=dot",
+    "unit:back": "cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo llvm-cov --fail-under-lines 90 --fail-under-functions 90 --fail-under-regions 90 || (echo '[FAIL] Backend coverage below threshold' && exit 1)",
     "test:watch": "vitest",
     "automation": "playwright test --reporter=list",
     "automation:headed": "playwright test --headed",
@@ -27,6 +28,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-opener": "^2.5.5",
     "playwright": "^1.60.0"
   },
   "devDependencies": {

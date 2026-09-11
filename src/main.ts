@@ -1,7 +1,7 @@
 import './style.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { setLoadingState, clearLoadingState } from './utils';
 import { setupSettingsEvents, loadSavedSettings, checkLauncherUpdates } from './ui/settings';
 import { translations, getTranslation, translateDOM, setAppLanguage } from './i18n';
@@ -15,6 +15,7 @@ import { loadConfig } from './tabs/tweaks';
 import { setupDebugConsoleEvents } from './ui/debug-console';
 import { Prefs } from './prefs';
 import { setupTorrentEvents } from './ui/torrent';
+import { LauncherSettings } from './types';
 
 interface ExtendedWindow {
   __TAURI_INTERNALS__?: {
@@ -424,6 +425,65 @@ windowCloseBtn?.addEventListener('click', async () => {
   }
 });
 
+async function getOrPromptPreferredExecutable(exes: string[]): Promise<string | null> {
+  if (!exes || exes.length === 0) return null;
+
+  if (exes.length === 1) {
+    return exes[0];
+  }
+
+  return new Promise((resolve) => {
+    const modal = document.getElementById('launcherChoiceModal');
+    const select = document.getElementById('launcherChoiceSelect') as HTMLSelectElement | null;
+    const confirmBtn = document.getElementById('confirmLauncherChoice');
+    const cancelBtn = document.getElementById('cancelLauncherChoice');
+    const closeBtn = document.getElementById('closeLauncherChoice');
+
+    if (!modal || !select || !confirmBtn) {
+      resolve(exes[0]);
+      return;
+    }
+
+    select.replaceChildren(
+      ...exes.map((e) => {
+        const opt = document.createElement('option');
+        opt.value = e;
+        opt.textContent = e;
+        return opt;
+      })
+    );
+    modal.classList.remove('hidden');
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn?.removeEventListener('click', onCancel);
+      closeBtn?.removeEventListener('click', onCancel);
+    };
+
+    const onConfirm = async () => {
+      const chosen = select.value;
+      cleanup();
+      const existing = await invoke<LauncherSettings>('load_settings').catch(
+        () => ({}) as LauncherSettings
+      );
+      await invoke('save_settings', {
+        settings: { ...existing, selectedExecutable: chosen },
+      }).catch(console.error);
+      resolve(chosen);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn?.addEventListener('click', onCancel);
+    closeBtn?.addEventListener('click', onCancel);
+  });
+}
+
 playBtn?.addEventListener('click', async () => {
   const action = playBtn.getAttribute('data-action');
   if (action === 'install') {
@@ -440,9 +500,29 @@ playBtn?.addEventListener('click', async () => {
   setLoadingState(getTranslation('status.launching'), 20, statusFooter, activityProgress);
 
   try {
+    const exes = await invoke<string[]>('get_available_executables', {
+      basePath: gamePath.value,
+    }).catch((): string[] => []);
+    const saved = await invoke<LauncherSettings>('load_settings').catch(() => null);
+    const hasMultiple = exes && exes.length > 1;
+    const hasPreference = saved?.selectedExecutable && exes.includes(saved.selectedExecutable);
+
+    let chosenExe: string | null = null;
+    if (hasMultiple && !hasPreference) {
+      chosenExe = await getOrPromptPreferredExecutable(exes);
+      if (!chosenExe) {
+        clearLoadingState(statusFooter, activityProgress);
+        playBtn.disabled = false;
+        return;
+      }
+    } else if (hasPreference) {
+      chosenExe = saved!.selectedExecutable!;
+    }
+
     await invoke<string>('launch_game', {
       basePath: gamePath.value,
       stayOpen: stayOpen.checked,
+      preferredExe: chosenExe,
     });
 
     setLoadingState(getTranslation('status.launched'), 100, statusFooter, activityProgress);
@@ -507,21 +587,32 @@ document.querySelectorAll('.lang-option').forEach((btn) => {
   });
 });
 
+// Closes the splash window and reveals the main window, once the launcher is
+// fully ready (settings loaded, addons listed, git update checks resolved).
+function appReady() {
+  void Promise.resolve(invoke('close_splashscreen')).catch(console.error);
+}
+
 if (statusFooter) {
-  loadSavedSettings().then(() => {
-    translateDOM();
-    setupGitStatusEvents();
-    setupImportExportEvents();
-    setupStoreEvents(loadAddonsAndPatches);
-    setupMainSearchEvents();
-    setupSearchHoverBehavior();
-    setupAddonProfileEvents();
-    setupTorrentEvents(loadAddonsAndPatches);
-    loadAddonsAndPatches();
-    const activeTab = document.querySelector('.nav-tab.active');
-    const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'addons';
-    updateNavButtonsForTab(tabName);
-  });
+  loadSavedSettings()
+    .then(async () => {
+      translateDOM();
+      setupGitStatusEvents();
+      setupImportExportEvents();
+      setupStoreEvents(loadAddonsAndPatches);
+      setupMainSearchEvents();
+      setupSearchHoverBehavior();
+      setupAddonProfileEvents();
+      setupTorrentEvents(loadAddonsAndPatches);
+      await loadAddonsAndPatches();
+      const activeTab = document.querySelector('.nav-tab.active');
+      const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'addons';
+      updateNavButtonsForTab(tabName);
+    })
+    .catch(console.error)
+    .finally(appReady);
+} else {
+  appReady();
 }
 
 listen('update-available', () => {
@@ -545,4 +636,13 @@ setupDebugConsoleEvents();
 
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
+});
+
+document.addEventListener('click', (e) => {
+  const link = (e.target as HTMLElement)?.closest('a[href]') as HTMLAnchorElement | null;
+  if (!link) return;
+  const href = link.getAttribute('href') || '';
+  if (!/^https?:\/\//i.test(href)) return;
+  e.preventDefault();
+  openUrl(href).catch(() => {});
 });

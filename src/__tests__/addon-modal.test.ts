@@ -6,6 +6,17 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock('../state', async () => {
+  const actual = await vi.importActual<typeof import('../state')>('../state');
+  return {
+    ...actual,
+    getInstalledAddonsMeta: vi.fn(() => []),
+    getCurrentActiveSite: vi.fn(() => 'curseforge'),
+  };
+});
+
+import { getInstalledAddonsMeta } from '../state';
+
 describe('Addon Modal UI', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -131,5 +142,39 @@ describe('Addon Modal UI', () => {
     (invoke as any).mockRejectedValueOnce('Open error');
     openBtn.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it('adds a CurseForge link button when the installed addon has a modId', async () => {
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+    `;
+    (getInstalledAddonsMeta as any).mockReturnValueOnce([{ name: 'TestAddon', modId: 123 }]);
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'get_curseforge_mod') {
+        return Promise.resolve({ data: { links: { websiteUrl: 'https://curseforge.test/mod' } } });
+      }
+      return Promise.resolve();
+    });
+
+    showAddonModal({ name: 'TestAddon', title: 'Test Addon', author: null, version: null, hasGit: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(invoke).toHaveBeenCalledWith('get_curseforge_mod', { modId: 123, isMock: false });
+    const overlay = document.querySelector('.fixed.inset-0') as HTMLElement;
+    expect(overlay.querySelectorAll('#modal-header-buttons button').length).toBe(3);
+  });
+
+  it('adds no CurseForge link button when the lookup fails or returns no url', async () => {
+    document.body.innerHTML = `
+      <input id="gamePath" value="/mock/wow" />
+    `;
+    (getInstalledAddonsMeta as any).mockReturnValueOnce([{ name: 'TestAddon', modId: 123 }]);
+    (invoke as any).mockImplementationOnce(() => Promise.reject('lookup failed'));
+
+    showAddonModal({ name: 'TestAddon', title: 'Test Addon', author: null, version: null, hasGit: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const overlay = document.querySelector('.fixed.inset-0') as HTMLElement;
+    expect(overlay.querySelectorAll('#modal-header-buttons button').length).toBe(2);
   });
 });

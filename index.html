@@ -5,6 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OWL</title>
+    <style>
+      /* Inline so the window never paints white before the JS-injected stylesheet loads. */
+      html,
+      body {
+        margin: 0;
+        background: #020617;
+      }
+    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
     <script type="module" src="src/main.ts"></script>
   </head>
@@ -28,7 +36,7 @@
           </button>
           <button
             id="themeToggleBtn"
-            class="titlebar-button rounded-full p-1 text-slate-100 hover:bg-slate-800 flex items-center justify-center"
+            class="titlebar-button rounded-full p-1.5 text-slate-100 hover:bg-slate-800 flex items-center justify-center cursor-pointer outline-none"
             data-i18n-title="buttons.toggleTheme"
             title="Toggle Light/Dark Mode"
           >
@@ -50,7 +58,7 @@
           <div class="relative">
             <button
               id="settingsBtn"
-              class="titlebar-button rounded-full p-1.5 text-slate-100 hover:bg-slate-800 flex items-center justify-center"
+              class="titlebar-button rounded-full p-1.5 text-slate-100 hover:bg-slate-800 flex items-center justify-center cursor-pointer outline-none"
               data-i18n-title="settings.title"
               title="Settings"
             >
@@ -229,7 +237,7 @@
           >
             <div
               id="config-tree"
-              class="mt-4 text-sm text-slate-300 overflow-y-auto flex-1 min-h-0 pr-3"
+              class="mt-4 text-sm text-slate-300 flex-1 min-h-0 flex flex-col"
             ></div>
           </div>
         </section>
@@ -663,7 +671,7 @@
       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     >
       <div
-        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-96 max-h-96 overflow-y-auto"
+        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-[32rem] max-h-[90vh] overflow-y-auto shadow-2xl"
       >
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold text-slate-100" data-i18n="settings.title">Settings</h2>
@@ -690,6 +698,19 @@
                 Browse
               </button>
             </div>
+          </div>
+
+          <div id="preferredExeContainer" class="hidden">
+            <label class="block text-sm font-medium mb-2" data-i18n="settings.preferredExe"
+              >Game Executable</label
+            >
+            <select
+              id="preferredExeSelect"
+              class="w-full rounded bg-slate-800 px-3 py-2 text-sm border border-slate-700 text-slate-100 outline-none focus:border-slate-500"
+            ></select>
+            <p class="text-[11px] text-slate-400 mt-1" data-i18n="settings.preferredExeHelp">
+              Multiple WoW executables detected. Select which binary to launch.
+            </p>
           </div>
 
           <div>
@@ -743,6 +764,49 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="launcherChoiceModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    >
+      <div
+        class="rounded-lg border border-slate-700 bg-slate-900 p-6 w-[28rem] shadow-2xl space-y-4"
+      >
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-slate-100" data-i18n="launcherChoice.title">
+            Select Game Executable
+          </h2>
+          <button id="closeLauncherChoice" class="text-slate-400 hover:text-slate-200">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-300" data-i18n="launcherChoice.desc">
+          Multiple WoW executables were found in your game folder. Please select which executable to
+          launch:
+        </p>
+
+        <select
+          id="launcherChoiceSelect"
+          class="w-full rounded bg-slate-800 px-3 py-2 text-sm border border-slate-700 text-slate-100 outline-none focus:border-slate-500"
+        ></select>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            id="cancelLauncherChoice"
+            class="rounded border border-slate-700 bg-slate-800 px-4 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
+            data-i18n="settings.cancel"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirmLauncherChoice"
+            class="rounded bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-500"
+            data-i18n="launcherChoice.launchBtn"
+          >
+            Launch & Remember
+          </button>
         </div>
       </div>
     </div>

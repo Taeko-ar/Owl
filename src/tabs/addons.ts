@@ -8,10 +8,30 @@ import {
 } from '../utils';
 import { getTranslation } from '../i18n';
 import { checkSingleAddonGitStatus } from '../ui/git-status';
+import { gitStatusCache } from '../state';
 import { showAddonModal } from '../ui/addon-modal';
 import { loadPatches } from './patches';
 import { AddonMeta, AddonProfile, LauncherSettings } from '../types';
 import { parseConfigToMap } from './tweaks';
+
+function sortRowsByUpdateAvailable<T extends { name: string }>(rows: T[]) {
+  rows.sort((a, b) => {
+    const aUpdate = gitStatusCache.get(a.name)?.updateAvailable ? 1 : 0;
+    const bUpdate = gitStatusCache.get(b.name)?.updateAvailable ? 1 : 0;
+    return bUpdate - aUpdate;
+  });
+}
+
+function reorderAddonRows<T extends { name: string }>(container: HTMLElement, rows: T[]) {
+  const sorted = [...rows];
+  sortRowsByUpdateAvailable(sorted);
+  sorted.forEach((r) => {
+    const el = Array.from(container.children).find(
+      (c) => (c as HTMLElement).dataset.addon === r.name
+    ) as HTMLElement | undefined;
+    if (el) container.appendChild(el);
+  });
+}
 
 export async function loadAddonsAndPatches() {
   const gamePath = document.getElementById('gamePath') as HTMLInputElement;
@@ -68,6 +88,8 @@ export async function loadAddonsAndPatches() {
         const enabled = !meta.name.endsWith('-disabled');
         return { ...meta, displayName, enabled };
       });
+
+      sortRowsByUpdateAvailable(rows);
 
       addonsList.innerHTML = rows
         .map(
@@ -251,21 +273,14 @@ export async function loadAddonsAndPatches() {
           d.classList.add('hidden');
         });
       });
-      (async () => {
-        for (const meta of rows) {
-          if (!meta.hasGit) continue;
-          const container = document.querySelector(
-            `.addon-git-status[data-addon="${meta.name}"]`
-          ) as HTMLElement;
-          await checkSingleAddonGitStatus(
-            meta.name,
-            container,
-            gamePath.value,
-            statusFooter,
-            false
-          );
-        }
-      })();
+      for (const meta of rows) {
+        if (!meta.hasGit) continue;
+        const container = document.querySelector(
+          `.addon-git-status[data-addon="${meta.name}"]`
+        ) as HTMLElement;
+        await checkSingleAddonGitStatus(meta.name, container, gamePath.value, statusFooter, false);
+      }
+      reorderAddonRows(addonsList, rows);
 
       const settings = await invoke<LauncherSettings | null>('load_settings')
         /* v8 ignore start */ .catch(() => null); /* v8 ignore stop */

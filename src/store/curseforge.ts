@@ -75,3 +75,11 @@ export async function fetchCurseForgeVersions(
 export async function getCurseForgeModDescription(modId: number, isMock: boolean): Promise<string> {
   return invoke<string>('get_curseforge_mod_description', { modId, isMock });
 }
+
+export async function getCurseForgeModUrl(
+  modId: number,
+  isMock: boolean
+): Promise<string | undefined> {
+  const response = await invoke<{ data: CurseForgeMod }>('get_curseforge_mod', { modId, isMock });
+  return response.data?.links?.websiteUrl || undefined;
+}

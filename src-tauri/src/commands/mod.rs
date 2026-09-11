@@ -1,10 +1,10 @@
 pub mod addons;
 pub mod game;
-pub mod patches;
-pub mod store;
 pub mod import;
 pub mod os;
+pub mod patches;
 pub mod settings;
-pub mod window;
-pub mod torrent;
+pub mod store;
 pub mod system;
+pub mod torrent;
+pub mod window;

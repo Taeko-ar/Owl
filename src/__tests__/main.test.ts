@@ -120,11 +120,12 @@ describe('Main Application Entrypoint', () => {
     });
 
     playBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(invoke).toHaveBeenCalledWith('launch_game', {
       basePath: '/mock/wow',
       stayOpen: false,
+      preferredExe: null,
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Game finished with stayOpen = false -> closes window
     expect(invoke).toHaveBeenCalledWith('close_window');
@@ -203,7 +204,10 @@ describe('Main Application Entrypoint', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     // 3. Play game launch fail
-    (invoke as any).mockImplementationOnce(() => Promise.reject('Launch fail'));
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'launch_game') return Promise.reject('Launch fail');
+      return Promise.resolve();
+    });
     playBtn.click();
     await new Promise((resolve) => setTimeout(resolve, 20));
     const statusFooter = document.getElementById('status') as HTMLElement;
@@ -312,7 +316,10 @@ describe('Main Application Entrypoint', () => {
     expect(invoke).not.toHaveBeenCalledWith('close_window');
 
     // 2. playBtn click with real Error object thrown to cover error instanceof Error
-    (invoke as any).mockImplementationOnce(() => Promise.reject(new Error('Real Launch Error')));
+    (invoke as any).mockImplementation((cmd: string) => {
+      if (cmd === 'launch_game') return Promise.reject(new Error('Real Launch Error'));
+      return Promise.resolve();
+    });
     playBtn.click();
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(statusFooter.textContent).toBe('Error: Real Launch Error');

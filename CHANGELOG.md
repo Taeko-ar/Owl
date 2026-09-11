@@ -1,3 +1,19 @@
+## [1.1.3] - 2026-06-03
+
+## Added
+- Added a way to pick which game executable to launch when your WoW folder has more than one, and Owl remembers your choice for next time.
+- Added a splash screen now shows while the launcher starts up, instead of a blank white window.
+- Added addon details: now show quick buttons to open the addon's GitHub or CurseForge page.
+- After downloading a WoW install via torrent, Owl now asks if you want to set that folder as your game path automatically.
+
+## Fixed
+- Fixed the launcher window not rendering or dragging correctly on some Linux systems.
+- Fixed a security issue where a malicious addon archive (RAR/7z) could write files outside your addons folder.
+- Fixed addon and download names not being safely displayed, which could break the interface with certain characters.
+- Fixed addons with available updates not being sorted to the top of the list.
+- Fixed a duplicate background request when launching the game, making launches slightly faster.
+- Various behind-the-scenes stability and testing improvements.
+
 ## [1.1.2] - 2026-06-03
 
 - Fixed a few issues from the marketplace

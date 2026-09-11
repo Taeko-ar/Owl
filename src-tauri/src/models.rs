@@ -38,7 +38,7 @@ pub struct AddonMeta {
     pub is_dependency: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AddonProfile {
     pub name: String,
@@ -57,6 +57,7 @@ pub struct LauncherSettings {
     pub addon_profiles_by_path: Option<std::collections::HashMap<String, Vec<AddonProfile>>>,
     pub addon_profiles: Option<Vec<AddonProfile>>,
     pub active_profile: Option<String>,
+    pub selected_executable: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ExportedAddon {
@@ -97,7 +98,5 @@ pub struct InstalledAddonSourceMeta {
 }
 
 pub struct PendingInstallations(
-    pub std::sync::Mutex<std::collections::HashMap<String, std::path::PathBuf>>
+    pub std::sync::Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
 );
-
-

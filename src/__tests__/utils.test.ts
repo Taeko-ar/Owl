@@ -50,8 +50,10 @@ describe('utils', () => {
     expect(html).toContain('<h5>H5</h5>');
     expect(html).toContain('<h6>H6</h6>');
     expect(html).toContain('<strong>Bold</strong>');
-    expect(html).toContain('<code>code</code>');
-    expect(html).toContain('<pre><code><br>const x = 1;<br></code></pre>');
+    expect(html).toContain('<code class="break-words">code</code>');
+    expect(html).toContain(
+      '<pre class="whitespace-pre-wrap break-words overflow-x-auto bg-slate-900/60 rounded p-2 my-2"><code><br>const x = 1;<br></code></pre>'
+    );
     expect(html).toContain('<a href="https://example.com"');
     expect(html).not.toContain('<script>');
   });

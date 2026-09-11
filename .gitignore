@@ -19,12 +19,15 @@ pnpm-debug.log*
 
 # Coverage
 /coverage/
+.localtemp
 
 # Environment
 .env
 .env.*
 .github/agents
 .agents/
+.claude
+docs/
 
 # Local history / workspace metadata
 /scripts/

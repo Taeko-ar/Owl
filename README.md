@@ -34,7 +34,7 @@ Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases
   - Multi-language support (English, Spanish (Latam), Portuguese (Brasil))
   - Dark/Light mode
 - **Multi OS Support**:
-    - Cross-platform launcher supporting Windows and Linux (Bazzite only validated but it should work on any Fedora-based distro). Check the [Linux Setup & Compatibility guide](#running-wowexe-on-linux-proton--wine) for Proton/Wine runner configuration and Wayland setup.
+  - Cross-platform launcher supporting Windows and Linux (Bazzite only validated but it should work on any Fedora-based distro). Check the [Linux Setup & Compatibility guide](#running-wowexe-on-linux-proton--wine) for Proton/Wine runner configuration and Wayland setup.
 
 ## Local Development
 
@@ -61,10 +61,10 @@ Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases
    pnpm run cargo:check
 
    # Run frontend unit tests
-   pnpm run unit
+   pnpm run unit:front
 
-   # Run with coverage reports
-   pnpm run lint
+   # Run backend unit tests with coverage
+   pnpm run unit:back
 
    # Run automated E2E tests
    pnpm run automation
@@ -76,10 +76,10 @@ Download the latest release from [here](https://github.com/Taeko-ar/Owl/releases
    pnpm run build
    ```
 
-
 ## Linux Setup & Compatibility
 
 ### WebKitGTK & Wayland Rendering
+
 If running on Linux under Wayland or encountering rendering/WebKitGTK issues (e.g. blank window or display errors), use the dedicated Linux dev command:
 
 ```bash
@@ -90,7 +90,9 @@ This passes recommended environment overrides:
 `GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1`
 
 <a id="linux-proton-setup"></a>
+
 ### Running WoW.exe on Linux (Proton & Wine)
+
 To launch Windows executables (`WoW.exe`), Owl handles compatibility automatically:
 
 - **Steam Proton (Automatic)**: Owl automatically scans system Steam installations (Native Steam, Flatpak Steam, `compatibilitytools.d`, GE-Proton, Proton Experimental) and launches the game with an automatically provisioned Proton prefix at `~/.local/share/owl/proton_prefix/`.
@@ -103,6 +105,7 @@ To launch Windows executables (`WoW.exe`), Owl handles compatibility automatical
   ```
 
 ### System Build Dependencies
+
 Building from source on Linux requires GTK3 and WebKitGTK development packages:
 
 - **Debian / Ubuntu**:

@@ -19,6 +19,7 @@ export interface AddonGitStatus {
   lastCommit?: string;
   branch?: string;
   branches?: string[];
+  remoteUrl?: string;
 }
 
 export interface AddonProfile {
@@ -34,6 +35,7 @@ export interface LauncherSettings {
   stayOpen?: boolean;
   addonProfiles?: AddonProfile[];
   activeProfile?: string;
+  selectedExecutable?: string;
 }
 
 export interface CatalogAddon {

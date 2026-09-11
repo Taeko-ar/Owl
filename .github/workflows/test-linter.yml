@@ -42,7 +42,9 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
       - name: Run Unit Tests
-        run: pnpm run unit
+        run: pnpm run unit:front
+      - name: Run Backend Unit Tests
+        run: pnpm run unit:back
       - name: Run Playwright Automation Tests
         run: pnpm run automation
       - uses: actions/upload-artifact@v4

@@ -132,6 +132,45 @@ export async function checkLauncherUpdates(manual: boolean) {
   wireUpdateLabelClick();
 }
 
+export async function refreshAvailableExecutables() {
+  const gamePath = document.getElementById('gamePath') as HTMLInputElement | null;
+  const preferredExeContainer = document.getElementById('preferredExeContainer');
+  const preferredExeSelect = document.getElementById(
+    'preferredExeSelect'
+  ) as HTMLSelectElement | null;
+
+  if (!gamePath || !preferredExeContainer || !preferredExeSelect) return;
+
+  if (!gamePath.value) {
+    preferredExeContainer.classList.add('hidden');
+    return;
+  }
+
+  try {
+    const exes = await invoke<string[]>('get_available_executables', { basePath: gamePath.value });
+    if (exes && exes.length > 1) {
+      preferredExeContainer.classList.remove('hidden');
+      const saved = await invoke<LauncherSettings>('load_settings').catch(() => null);
+      const currentSelected = saved?.selectedExecutable || exes[0];
+
+      preferredExeSelect.replaceChildren(
+        ...exes.map((e) => {
+          const opt = document.createElement('option');
+          opt.value = e;
+          opt.textContent = e;
+          opt.selected = currentSelected === e;
+          return opt;
+        })
+      );
+      preferredExeSelect.value = currentSelected;
+    } else {
+      preferredExeContainer.classList.add('hidden');
+    }
+  } catch {
+    preferredExeContainer.classList.add('hidden');
+  }
+}
+
 export function setupSettingsEvents(loadConfig: () => Promise<void>) {
   const settingsModal = document.getElementById('settingsModal') as HTMLDivElement | null;
   const settingsBtn = document.getElementById('settingsBtn');
@@ -167,7 +206,7 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
     settingsModal.classList.add('hidden');
   };
 
-  settingsBtn?.addEventListener('click', () => {
+  settingsBtn?.addEventListener('click', async () => {
     setSettingsBackup({
       path: gamePath.value,
       windowSize: windowSizeSelect?.value ?? defaultLauncherSize,
@@ -175,6 +214,7 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
     });
 
     settingsModal.classList.remove('hidden');
+    refreshAvailableExecutables();
 
     const p = invoke<string>('get_app_version');
     if (p && typeof p.then === 'function') {
@@ -224,12 +264,17 @@ export function setupSettingsEvents(loadConfig: () => Promise<void>) {
       const selectedFolder = await invoke<string>('pick_folder');
       if (selectedFolder) {
         gamePath.value = selectedFolder;
+        await refreshAvailableExecutables();
         if (statusFooter) statusFooter.textContent = getTranslation('status.ready');
       }
     } catch (error) {
       console.error('Browse game path failed', error);
       if (statusFooter) statusFooter.textContent = getTranslation('status.ready');
     }
+  });
+
+  gamePath.addEventListener('change', () => {
+    refreshAvailableExecutables();
   });
 
   // Update modal events
@@ -292,6 +337,7 @@ export async function loadSavedSettings() {
     if (saved?.stayOpen !== undefined) {
       stayOpen.checked = saved.stayOpen;
     }
+    await refreshAvailableExecutables();
   } catch {
     if (windowSizeSelect) {
       windowSizeSelect.value = defaultLauncherSize;
@@ -304,6 +350,10 @@ export async function saveSettings() {
   const gamePath = document.getElementById('gamePath') as HTMLInputElement | null;
   const windowSizeSelect = document.getElementById('windowSize') as HTMLSelectElement | null;
   const stayOpen = document.getElementById('stayOpen') as HTMLInputElement | null;
+  const preferredExeSelect = document.getElementById(
+    'preferredExeSelect'
+  ) as HTMLSelectElement | null;
+  const preferredExeContainer = document.getElementById('preferredExeContainer');
 
   if (!gamePath || !stayOpen) return;
 
@@ -312,6 +362,14 @@ export async function saveSettings() {
     windowSize: windowSizeSelect?.value || defaultLauncherSize,
     stayOpen: stayOpen.checked,
   };
+
+  if (
+    preferredExeContainer &&
+    !preferredExeContainer.classList.contains('hidden') &&
+    preferredExeSelect?.value
+  ) {
+    settings.selectedExecutable = preferredExeSelect.value;
+  }
 
   await invoke('save_settings', { settings });
 }
