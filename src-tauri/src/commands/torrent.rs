@@ -776,13 +776,33 @@ mod tests {
     /// `#[tauri::command]` fns at all (they take `State<'_, TorrentState>`), and every test
     /// using it only ever queries an empty/no-op session or a hash that isn't in it, so it
     /// never dials a peer, tracker, or DHT bootstrap node.
+    ///
+    /// Unlike `TorrentState::new()` this is built with DHT off and its own per-process
+    /// output folder. `SessionOptions::default()` (what production uses) enables the
+    /// *persistent* DHT, which re-uses a stored config including the UDP port it listens
+    /// on — so a running Owl instance, or any other process holding that port, makes the
+    /// session bind fail with `Address already in use` and takes every torrent test with
+    /// it. DHT off means no UDP bind, no bootstrap DNS, no shared state: nothing these
+    /// tests need anyway.
     fn shared_session_api() -> (Arc<Session>, Arc<Api>) {
         static CELL: OnceLock<(Arc<Session>, Arc<Api>)> = OnceLock::new();
         CELL.get_or_init(|| {
             let _guard = crate::lock_env();
+            let output_dir =
+                std::env::temp_dir().join(format!("owl_torrent_test_{}", std::process::id()));
+            fs::create_dir_all(&output_dir).unwrap();
             tauri::async_runtime::block_on(async {
-                let state = TorrentState::new().await.unwrap();
-                (state.session, state.api)
+                let session = Session::new_with_opts(
+                    output_dir,
+                    librqbit::SessionOptions {
+                        disable_dht: true,
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+                let api = Arc::new(Api::new(Arc::clone(&session), None));
+                (session, api)
             })
         })
         .clone()
