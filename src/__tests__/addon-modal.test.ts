@@ -156,7 +156,13 @@ describe('Addon Modal UI', () => {
       return Promise.resolve();
     });
 
-    showAddonModal({ name: 'TestAddon', title: 'Test Addon', author: null, version: null, hasGit: false });
+    showAddonModal({
+      name: 'TestAddon',
+      title: 'Test Addon',
+      author: null,
+      version: null,
+      hasGit: false,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(invoke).toHaveBeenCalledWith('get_curseforge_mod', { modId: 123, isMock: false });
@@ -171,7 +177,13 @@ describe('Addon Modal UI', () => {
     (getInstalledAddonsMeta as any).mockReturnValueOnce([{ name: 'TestAddon', modId: 123 }]);
     (invoke as any).mockImplementationOnce(() => Promise.reject('lookup failed'));
 
-    showAddonModal({ name: 'TestAddon', title: 'Test Addon', author: null, version: null, hasGit: false });
+    showAddonModal({
+      name: 'TestAddon',
+      title: 'Test Addon',
+      author: null,
+      version: null,
+      hasGit: false,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const overlay = document.querySelector('.fixed.inset-0') as HTMLElement;

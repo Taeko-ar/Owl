@@ -516,7 +516,7 @@ playBtn?.addEventListener('click', async () => {
         return;
       }
     } else if (hasPreference) {
-      chosenExe = saved!.selectedExecutable!;
+      chosenExe = saved?.selectedExecutable ?? null;
     }
 
     await invoke<string>('launch_game', {
