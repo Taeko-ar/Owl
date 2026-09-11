@@ -745,6 +745,15 @@ mod tests {
     /// that one is private to its module).
     fn with_isolated_settings<F: FnOnce()>(f: F) {
         let _guard = crate::lock_env();
+        with_isolated_settings_locked(f);
+    }
+
+    /// `with_isolated_settings`'s body, minus the lock. Split out for the one test that
+    /// has to set `XDG_CONFIG_HOME` itself and read it back afterwards: `crate::lock_env()`
+    /// is a plain non-reentrant `Mutex`, so such a test cannot hold the lock across a call
+    /// to the locking wrapper, and doing those set/read steps *outside* the lock races
+    /// every other thread's restore of the same process-wide variable.
+    fn with_isolated_settings_locked<F: FnOnce()>(f: F) {
         let dir = tempdir().unwrap();
         let orig = std::env::var("XDG_CONFIG_HOME").ok();
         std::env::set_var("XDG_CONFIG_HOME", dir.path());
@@ -757,18 +766,21 @@ mod tests {
 
     #[test]
     fn test_with_isolated_settings_restores_preexisting_value() {
+        let _guard = crate::lock_env();
+        let orig = std::env::var("XDG_CONFIG_HOME").ok();
         std::env::set_var("XDG_CONFIG_HOME", "/preexisting/value");
-        with_isolated_settings(|| {
+        with_isolated_settings_locked(|| {
             assert_ne!(
                 std::env::var("XDG_CONFIG_HOME").unwrap(),
                 "/preexisting/value"
             );
         });
-        assert_eq!(
-            std::env::var("XDG_CONFIG_HOME").unwrap(),
-            "/preexisting/value"
-        );
-        std::env::remove_var("XDG_CONFIG_HOME");
+        let restored = std::env::var("XDG_CONFIG_HOME").unwrap();
+        match orig {
+            Some(v) => std::env::set_var("XDG_CONFIG_HOME", v),
+            None => std::env::remove_var("XDG_CONFIG_HOME"),
+        }
+        assert_eq!(restored, "/preexisting/value");
     }
 
     /// A real (but idle) librqbit `Session`/`Api` pair, built once and reused across every

@@ -468,17 +468,23 @@ mod tests {
     /// (e.g. `git.rs`'s tests shelling real `git`) or `dirs::config_dir()` lookups unless
     /// serialized — returning the lock here means no caller can forget to take it.
     #[cfg(target_os = "linux")]
+    /// The env guards come FIRST in the returned tuple and the lock LAST, because tuple
+    /// fields drop in declaration order: the guards must restore `PATH`/`HOME` while the
+    /// lock is still held. With the lock first, dropping `_guards` frees the lock while
+    /// `PATH` is still `/nonexistent/path`, and the next test to take the lock fails to
+    /// find `git` (or resolves `dirs::home_dir()` to this test's tempdir).
     fn isolate_launch_env(
         home: &std::path::Path,
-    ) -> (std::sync::MutexGuard<'static, ()>, [EnvVarGuard; 4]) {
+    ) -> ([EnvVarGuard; 4], std::sync::MutexGuard<'static, ()>) {
+        let lock = crate::lock_env();
         (
-            crate::lock_env(),
             [
                 EnvVarGuard::remove("WINE"),
                 EnvVarGuard::remove("GAME_RUNNER"),
                 EnvVarGuard::set("PATH", "/nonexistent/path"),
                 EnvVarGuard::set("HOME", &home.to_string_lossy()),
             ],
+            lock,
         )
     }
 
@@ -548,7 +554,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn env_guards_for(
         dir: &tempfile::TempDir,
-    ) -> (std::sync::MutexGuard<'static, ()>, [EnvVarGuard; 4]) {
+    ) -> ([EnvVarGuard; 4], std::sync::MutexGuard<'static, ()>) {
         isolate_launch_env(dir.path())
     }
 
