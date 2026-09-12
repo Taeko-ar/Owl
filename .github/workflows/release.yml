@@ -12,25 +12,17 @@ permissions:
   contents: write
 
 jobs:
-  bump-version:
+  compute-version:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      version: ${{ steps.next_version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: release
           fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'pnpm'
 
       - name: Determine bump type
         id: determine_bump
@@ -46,35 +38,27 @@ jobs:
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "Bump type determined: $BUMP_TYPE"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run version bump
+      # Version is only computed here; it is committed by `commit-version`
+      # after every platform built, so a failed build never burns a version.
+      - name: Compute next version
+        id: next_version
+        env:
+          BUMP_TYPE: ${{ steps.determine_bump.outputs.bump_type }}
         run: |
-          npm version ${{ steps.determine_bump.outputs.bump_type }} --no-git-tag-version
           node -e "
             const fs = require('fs');
-            const ver = JSON.parse(fs.readFileSync('package.json','utf8')).version;
-            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
-            conf.version = ver;
-            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
-            console.log('Bumped to', ver);
+            const [major, minor, patch] = require('./package.json').version.split('.').map(Number);
+            const bumped = {
+              major: [major + 1, 0, 0],
+              minor: [major, minor + 1, 0],
+              patch: [major, minor, patch + 1],
+            }[process.env.BUMP_TYPE].join('.');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + bumped + '\n');
+            console.log('Next version:', bumped);
           "
 
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json pnpm-lock.yaml src-tauri/tauri.conf.json
-
-          NEW_VER=$(node -e "console.log(require('./package.json').version)")
-          git commit -m "chore: bump version to $NEW_VER [skip ci]" || echo "No changes to commit"
-
-          git push origin HEAD:release || echo "No changes to push to release"
-          git push origin HEAD:main || echo "No changes to push to main"
-
   publish-tauri:
-    needs: [bump-version]
+    needs: [compute-version]
     permissions:
       contents: write
     strategy:
@@ -102,9 +86,18 @@ jobs:
           node-version: lts/*
           cache: 'pnpm'
 
-      - name: Get version from package.json
-        id: get_version
-        run: node -e "const fs = require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + require('./package.json').version + '\n')"
+      - name: Apply release version
+        shell: bash
+        env:
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = process.env.VERSION;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
 
       - name: Read Changelog
         id: changelog
@@ -140,8 +133,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
-          tagName: v${{ steps.get_version.outputs.version }}
-          releaseName: 'Release v${{ steps.get_version.outputs.version }}'
+          tagName: v${{ needs.compute-version.outputs.version }}
+          releaseName: 'Release v${{ needs.compute-version.outputs.version }}'
           releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: true
           prerelease: false
@@ -160,8 +153,8 @@ jobs:
             src-tauri/target/**/release/bundle/deb/*.deb
             src-tauri/target/**/release/bundle/appimage/*.AppImage
 
-  checksum-release:
-    needs: publish-tauri
+  commit-version:
+    needs: [compute-version, publish-tauri]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -172,14 +165,53 @@ jobs:
           ref: release
           fetch-depth: 0
 
-      - name: Get version from package.json
-        id: get_version
-        run: node -e "const fs = require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + require('./package.json').version + '\n')"
+      - name: Apply version bump
+        env:
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = process.env.VERSION;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
+      - name: Commit and push changes
+        env:
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src-tauri/tauri.conf.json
+
+          git commit -m "chore: bump version to $VERSION [skip ci]" || echo "No changes to commit"
+
+          git push origin HEAD:release || echo "No changes to push to release"
+          git push origin HEAD:main || echo "No changes to push to main"
+
+  checksum-release:
+    needs: [compute-version, publish-tauri, commit-version]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Point release at bumped commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.compute-version.outputs.version }}
+        run: gh release edit "$TAG" --target "$(git rev-parse HEAD)" --repo "$GITHUB_REPOSITORY"
 
       - name: Generate Checksums and Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: v${{ steps.get_version.outputs.version }}
+          TAG: v${{ needs.compute-version.outputs.version }}
         run: |
           mkdir release-assets
           gh release download "$TAG" --dir release-assets --repo "$GITHUB_REPOSITORY"
