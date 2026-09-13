@@ -15,7 +15,9 @@
       "deb",
       "rpm",
       "nsis",
-      "msi"
+      "msi",
+      "dmg",
+      "app"
     ],
     "createUpdaterArtifacts": true,
     "icon": [
